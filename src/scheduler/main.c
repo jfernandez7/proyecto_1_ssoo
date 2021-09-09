@@ -23,10 +23,8 @@ Process prueba = {
       .nombre = "prueba",
       .numero_fabrica = 0
     };
-//int prueba[] = {3,6,2,4};
-//int array_cpus[];
 
-// file es data_in
+
 int compareProcessByName(const void *v1, const void *v2)
 {
     const Process *u1 = v1;
@@ -68,8 +66,6 @@ int compareProcessByTiempo(const void *v1, const void *v2)
 
 int main(int argc, char **argv)
 {
-  //selectionSort(prueba, 4);
-  //printf("prueba %i, %i, %i, %i \n", prueba[0], prueba[1], prueba[2], prueba[3]);
   printf("Hello T2!\n");
   // Recibiendo argumentos
   input_name = argv[1];
@@ -107,7 +103,7 @@ int main(int argc, char **argv)
       nombre_proceso.cpu_io[i] = valor;
       }
     array_procesos[i] = nombre_proceso;
-    //printf("\tProcess %s from factory %s has init time of %s and %s bursts.\n", line[0], line[2], line[1], line[3]);
+    printf("\tProcess %s from factory %s has init time of %s and %s bursts.\n", line[0], line[2], line[1], line[3]);
   }
   for (int i = 0; i < file->len; i++){
     printf("Proceso %s \n", array_procesos[i].nombre);
@@ -120,22 +116,55 @@ int main(int argc, char **argv)
   //Process array_aux[8] = {prueba, prueba, prueba, prueba, prueba, prueba, prueba, prueba};
   //Ordenar empates
   int cont = 0;
+  Process array_usado[8];
+  int cont_usado = 0;
+ 
   for (int i = 0; i < n_procesos; i++){
     Process array_aux[8] = {prueba, prueba, prueba, prueba, prueba, prueba, prueba, prueba};
-    //Process array_aux_fabrica[8] = {prueba, prueba, prueba, prueba, prueba, prueba, prueba, prueba};
-    
+    int continuar = 1;
+    //array_usado[0] = array_procesos[i];
+    for (int m = 0; m < 8; m++){
+        if (array_usado[m].nombre == array_procesos[i].nombre){
+          continuar = 0;
+        }
+      }
     //array_aux[0] = array_procesos[i];
     int cont_0 = 1;
     for (int j = 0; j < n_procesos; j++){
-      if ((array_procesos[i].tiempo_init == array_procesos[j].tiempo_init) && (array_procesos[i].nombre != array_procesos[j].nombre)){
-          array_aux[0] = array_procesos[i];
-          array_aux[cont_0] = array_procesos[j];
-          cont_0 += 1;
+      if (continuar){
+        if ((array_procesos[i].tiempo_init == array_procesos[j].tiempo_init) && 
+        (array_procesos[i].nombre != array_procesos[j].nombre)){
+            array_aux[0] = array_procesos[i];
+            array_aux[cont_0] = array_procesos[j];
+            cont_0 += 1;
+            array_usado[cont_usado] = array_procesos[j];
+            cont_usado += 1;
+        }
       }
     }
+    printf("array_aux tiene q ser proceso 1 y 3 %s, %s en %s\n", array_aux[0].nombre, array_aux[1].nombre, array_procesos[i].nombre);
+    //printf("array usados %s, %s\n", array_usado[0]);
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     for (int k = 0; k < 8; k++){
       Process array_aux_nombre[2] = {prueba, prueba};
-      //array_aux_nombre[0] = array_aux[k]; 
+
+      array_aux_nombre[0] = array_aux[k]; 
       for (int l = 0; l < 8; l++){
         if (array_aux[k].nombre != array_aux[l].nombre){
           if (array_aux[k].numero_fabrica == array_aux[l].numero_fabrica){
@@ -154,8 +183,8 @@ int main(int argc, char **argv)
       }
     }
     qsort(array_aux, 8, sizeof(Process), compareProcessByFabrica);
-    printf("array aux: %s, %s, %s, %s, %s, %s, %s, %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre,
-    array_aux[3].nombre, array_aux[4].nombre, array_aux[5].nombre, array_aux[6].nombre, array_aux[7].nombre);
+    //printf("array aux: %s, %s, %s, %s, %s, %s, %s, %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre,
+    //array_aux[3].nombre, array_aux[4].nombre, array_aux[5].nombre, array_aux[6].nombre, array_aux[7].nombre);
   }
 
   //Agregar procesos en orden a la cola
@@ -164,7 +193,6 @@ int main(int argc, char **argv)
     cola_procesos.process[i] = array_procesos[i];
     printf("Proceso ordenado %s \n", array_procesos[i].nombre);
   }
-
 
   input_file_destroy(file);
   
