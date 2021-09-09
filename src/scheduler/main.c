@@ -17,7 +17,8 @@ InputFile *file;
 int n_procesos;
 char *nombre_proceso;
 Process* array_procesos;
-
+int posicion_nombre1;
+int posicion_nombre2;
 
 Process prueba = {
       .nombre = "prueba",
@@ -154,8 +155,12 @@ int main(int argc, char **argv)
       for (int l = 0; l < 8; l++){
         if (array_aux[k].nombre != array_aux[l].nombre){
           if (array_aux[k].numero_fabrica == array_aux[l].numero_fabrica){
-            array_aux_nombre[0] = array_aux[k];
-            array_aux_nombre[1] = array_aux[l];
+            posicion_nombre1 = k;
+            posicion_nombre2 = l;
+            printf("k %i\n", k);
+            printf("l %i\n", l);
+            array_aux_nombre[0] = array_aux[l];
+            array_aux_nombre[1] = array_aux[k];
           }
         }
       }
@@ -163,13 +168,15 @@ int main(int argc, char **argv)
     }
     if ((array_aux_nombre[0].nombre != prueba.nombre) && (array_aux_nombre[1].nombre != prueba.nombre)){
         qsort(array_aux_nombre, 2, sizeof(Process), compareProcessByName);
-        array_aux[cont] = array_aux_nombre[0];
-        array_aux[cont + 1] = array_aux_nombre[1];
-        cont += 2;
+        printf("array_aux antes de meter weas %s, %s, %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre);
+        array_aux[posicion_nombre2] = array_aux_nombre[0];
+        array_aux[posicion_nombre1] = array_aux_nombre[1];
+        printf("array_aux DESPUES de meter weas %s, %s, %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre);
+        //cont += 2;
       }
-    printf("array_aux_nombre para el proceso %s: %s, %s\n", array_procesos[i].nombre, array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
+    //printf("array_aux_nombre para el proceso %s: %s, %s\n", array_procesos[i].nombre, array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
     qsort(array_aux, 8, sizeof(Process), compareProcessByFabrica);
-    printf("array aux para el proceso %s: %s, %s, %s, %s, %s, %s, %s, %s\n", array_procesos[i].nombre, array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre,
+    printf("flo fijate array aux para el proceso %s: %s, %s, %s, %s, %s, %s, %s, %s\n", array_procesos[i].nombre, array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre,
      array_aux[3].nombre, array_aux[4].nombre, array_aux[5].nombre, array_aux[6].nombre, array_aux[7].nombre);
   }
 
