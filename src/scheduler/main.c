@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -16,16 +17,22 @@ InputFile *file;
 int n_procesos;
 char *nombre_proceso;
 Process* array_procesos;
+
+
+Process prueba = {
+      .nombre = "prueba",
+      .numero_fabrica = 0
+    };
 //int prueba[] = {3,6,2,4};
 //int array_cpus[];
 
 // file es data_in
-//int compareProcessByName(const void *v1, const void *v2)
-//{
-//    const Process *u1 = v1;
-//    const Process *u2 = v2;
-//    return strcmp(u1->tiempo_init, u2->tiempo_init);
-//}
+int compareProcessByName(const void *v1, const void *v2)
+{
+    const Process *u1 = v1;
+    const Process *u2 = v2;
+    return strcmp(u1->nombre, u2->nombre);
+}
 
 int compareProcessByFabrica(const void *v1, const void *v2)
 {
@@ -109,6 +116,48 @@ int main(int argc, char **argv)
   Cola cola_procesos = {
     .process = calloc(n_procesos, sizeof(Process)) //HACER FREEEEEEEEEEEE 
   };
+  
+  //Process array_aux[8] = {prueba, prueba, prueba, prueba, prueba, prueba, prueba, prueba};
+  //Ordenar empates
+  int cont = 0;
+  for (int i = 0; i < n_procesos; i++){
+    Process array_aux[8] = {prueba, prueba, prueba, prueba, prueba, prueba, prueba, prueba};
+    //Process array_aux_fabrica[8] = {prueba, prueba, prueba, prueba, prueba, prueba, prueba, prueba};
+    
+    //array_aux[0] = array_procesos[i];
+    int cont_0 = 1;
+    for (int j = 0; j < n_procesos; j++){
+      if ((array_procesos[i].tiempo_init == array_procesos[j].tiempo_init) && (array_procesos[i].nombre != array_procesos[j].nombre)){
+          array_aux[0] = array_procesos[i];
+          array_aux[cont_0] = array_procesos[j];
+          cont_0 += 1;
+      }
+    }
+    for (int k = 0; k < 8; k++){
+      Process array_aux_nombre[2] = {prueba, prueba};
+      //array_aux_nombre[0] = array_aux[k]; 
+      for (int l = 0; l < 8; l++){
+        if (array_aux[k].nombre != array_aux[l].nombre){
+          if (array_aux[k].numero_fabrica == array_aux[l].numero_fabrica){
+            array_aux_nombre[0] = array_aux[k];
+            array_aux_nombre[1] = array_aux[l];
+          }
+        }
+      }
+      if ((array_aux_nombre[0].nombre != prueba.nombre) && (array_aux_nombre[1].nombre != prueba.nombre)){
+        //printf("array_auxnombre[0], %s y array_auxnombre[1], %s \n", array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
+        qsort(array_aux_nombre, 2, sizeof(Process), compareProcessByName);
+        //printf("ORDENADO array_auxnombre[0], %s y array_auxnombre[1], %s \n", array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
+        array_aux[cont] = array_aux_nombre[0];
+        array_aux[cont + 1] = array_aux_nombre[1];
+        cont += 2;
+      }
+    }
+    qsort(array_aux, 8, sizeof(Process), compareProcessByFabrica);
+    printf("array aux: %s, %s, %s, %s, %s, %s, %s, %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre,
+    array_aux[3].nombre, array_aux[4].nombre, array_aux[5].nombre, array_aux[6].nombre, array_aux[7].nombre);
+  }
+
   //Agregar procesos en orden a la cola
   qsort(array_procesos, n_procesos, sizeof(Process), compareProcessByTiempo);
   for (int i = 0; i < n_procesos; i++){
