@@ -162,23 +162,26 @@ int main(int argc, char **argv)
           if (array_aux[k].numero_fabrica == array_aux[l].numero_fabrica){
             posicion_nombre1 = k;
             posicion_nombre2 = l;
-            //printf("k %i\n", k);
-            //printf("l %i\n", l);
+            printf("k %i\n", k);
+            printf("l %i\n", l);
             array_aux_nombre[0] = array_aux[l];
             array_aux_nombre[1] = array_aux[k];
+            if ((array_aux_nombre[0].nombre != prueba.nombre) && (array_aux_nombre[1].nombre != prueba.nombre)){
+              qsort(array_aux_nombre, 2, sizeof(Process), compareProcessByName);
+              printf("array_aux_nombre %s, %s\n", array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
+              array_aux[posicion_nombre2] = array_aux_nombre[0];
+              array_aux[posicion_nombre1] = array_aux_nombre[1];
+              printf("array_aux DESPUES de ordenar nombre %s, %s, %s, %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre, array_aux[3].nombre);
+              //cont += 2;
+            }
+            
           }
         }
       }
+      printf("creando array_aux_nombre: %s, %s\n", array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
       //printf("array_aux_nombre para el proceso %s: %s, %s\n", array_procesos[i].nombre, array_aux_nombre[0].nombre, array_aux_nombre[1].nombre); 
     }
-    if ((array_aux_nombre[0].nombre != prueba.nombre) && (array_aux_nombre[1].nombre != prueba.nombre)){
-        qsort(array_aux_nombre, 2, sizeof(Process), compareProcessByName);
-        //printf("array_aux antes de meter weas %s, %s, %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre);
-        array_aux[posicion_nombre2] = array_aux_nombre[0];
-        array_aux[posicion_nombre1] = array_aux_nombre[1];
-        //printf("array_aux DESPUES de meter weas %s, %s, %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre);
-        //cont += 2;
-      }
+    
     //printf("array_aux_nombre para el proceso %s: %s, %s\n", array_procesos[i].nombre, array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
     qsort(array_aux, 8, sizeof(Process), compareProcessByFabrica);
     printf("array aux para el proceso %s: %s, %s, %s, %s, %s, %s, %s, %s\n", array_procesos[i].nombre, array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre,
