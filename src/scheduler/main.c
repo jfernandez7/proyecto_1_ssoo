@@ -21,13 +21,45 @@ Process* array_empates;
 Process* array_total;
 int posicion_nombre1;
 int posicion_nombre2;
+int tiempo = 0;
+
+//"READY" = 5; "RUNNING = 6"; "WAITING = 7; "FINISHED" = 8;
 
 Process prueba = {
       .nombre = "prueba",
       .numero_fabrica = 5
     };
 
-
+int calcularQuantum (Cola cola_procesos, Process proceso_en_cpu, int largo_cola){
+  int n_i = 0;
+  int fabrica = proceso_en_cpu.numero_fabrica;
+  int f_i[4] = {0,0,0,0};
+  int f = 0;
+  for (int i = 0; i < largo_cola; i++){
+    if (cola_procesos.process[i].numero_fabrica == fabrica){
+      n_i += 1;
+    }
+    if (cola_procesos.process[i].numero_fabrica == 1){
+      f_i[0] += 1;
+    }
+    else if (cola_procesos.process[i].numero_fabrica == 2){
+      f_i[1] += 1;
+    }
+    else if (cola_procesos.process[i].numero_fabrica == 3){
+      f_i[2] += 1;
+    }
+    else if (cola_procesos.process[i].numero_fabrica == 4){
+      f_i[3] += 1;
+    }
+  }
+  for (int j = 0; j < 4; j++){
+    if (f_i[j] != 0){
+      f += 1;
+    }
+  }
+  int q  = (Q / (n_i * f));
+  return q;
+}
 int compareProcessByName(const void *v1, const void *v2)
 {
     const Process *u1 = v1;
@@ -95,9 +127,11 @@ int main(int argc, char **argv)
       .pid = i,
       .nombre = line[0],
       .numero_fabrica = atoi(line[2]),
-      .estado = "",
+      .estado = 5,
       .tiempo_init = atoi(line[1]),
       .bursts = atoi(line[3]),
+      .burst_actual = 0,
+      .io_actual = 0,
       .cpu_io = calloc(((int_bursts*2) - 1), sizeof(int)) //HACER FREEEEEEEEEEEE
     };
     for (int i = 0; i < ((int_bursts*2) - 1); i++){
@@ -108,17 +142,14 @@ int main(int argc, char **argv)
     array_procesos[i] = nombre_proceso;
     printf("\tProcess %s from factory %s has init time of %s and %s bursts.\n", line[0], line[2], line[1], line[3]);
   }
-  for (int i = 0; i < file->len; i++){
-    printf("Proceso %s \n", array_procesos[i].nombre);
-  }
+  //for (int i = 0; i < file->len; i++){
+  //  printf("Proceso %s \n", array_procesos[i].nombre);
+  //}
    
   Cola cola_procesos = {
     .process = calloc(n_procesos, sizeof(Process)) //HACER FREEEEEEEEEEEE 
   };
-  
-  //Process array_aux[8] = {prueba, prueba, prueba, prueba, prueba, prueba, prueba, prueba};
   //Ordenar empates
-  //int cont = 0;
   Process array_usado[8];
   int cont_usado = 0;
 
@@ -128,13 +159,11 @@ int main(int argc, char **argv)
   for (int i = 0; i < n_procesos; i++){
     Process array_aux[8] = {prueba, prueba, prueba, prueba, prueba, prueba, prueba, prueba};
     int continuar = 1;
-    //array_usado[0] = array_procesos[i];
     for (int m = 0; m < 8; m++){
         if (array_usado[m].nombre == array_procesos[i].nombre){
           continuar = 0;
         }
       }
-    //array_aux[0] = array_procesos[i];
     int cont_0 = 1;
     for (int j = 0; j < n_procesos; j++){
       if (continuar){
@@ -148,11 +177,7 @@ int main(int argc, char **argv)
         }
       }
     }
-    //printf("array_aux tiene q ser proceso 1 y 3 %s, %s, %s en %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre, array_procesos[i].nombre);
-    //printf("array usados %s, %s\n", array_usado[0]);
-    //printf("borrar hasta aca");
-    //printf("array aux para el proceso %s: %s, %s, %s, %s, %s, %s, %s, %s\n", array_procesos[i].nombre, array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre,
-     //array_aux[3].nombre, array_aux[4].nombre, array_aux[5].nombre, array_aux[6].nombre, array_aux[7].nombre);
+   
     Process array_aux_nombre[2] = {prueba, prueba};
     for (int k = 0; k < 8; k++){
       //Process array_aux_nombre[2] = {prueba, prueba};
@@ -162,40 +187,36 @@ int main(int argc, char **argv)
           if (array_aux[k].numero_fabrica == array_aux[l].numero_fabrica){
             posicion_nombre1 = k;
             posicion_nombre2 = l;
-            printf("k %i\n", k);
-            printf("l %i\n", l);
+            //printf("k %i\n", k);
+            //printf("l %i\n", l);
             array_aux_nombre[0] = array_aux[l];
             array_aux_nombre[1] = array_aux[k];
             if ((array_aux_nombre[0].nombre != prueba.nombre) && (array_aux_nombre[1].nombre != prueba.nombre)){
               qsort(array_aux_nombre, 2, sizeof(Process), compareProcessByName);
-              printf("array_aux_nombre %s, %s\n", array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
+              //printf("array_aux_nombre %s, %s\n", array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
               array_aux[posicion_nombre2] = array_aux_nombre[0];
               array_aux[posicion_nombre1] = array_aux_nombre[1];
-              printf("array_aux DESPUES de ordenar nombre %s, %s, %s, %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre, array_aux[3].nombre);
+              //printf("array_aux DESPUES de ordenar nombre %s, %s, %s, %s\n", array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre, array_aux[3].nombre);
               //cont += 2;
             }
             
           }
         }
       }
-      printf("creando array_aux_nombre: %s, %s\n", array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
+      //printf("creando array_aux_nombre: %s, %s\n", array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
       //printf("array_aux_nombre para el proceso %s: %s, %s\n", array_procesos[i].nombre, array_aux_nombre[0].nombre, array_aux_nombre[1].nombre); 
     }
     
     //printf("array_aux_nombre para el proceso %s: %s, %s\n", array_procesos[i].nombre, array_aux_nombre[0].nombre, array_aux_nombre[1].nombre);
     qsort(array_aux, 8, sizeof(Process), compareProcessByFabrica);
-    printf("array aux para el proceso %s: %s, %s, %s, %s, %s, %s, %s, %s\n", array_procesos[i].nombre, array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre,
-     array_aux[3].nombre, array_aux[4].nombre, array_aux[5].nombre, array_aux[6].nombre, array_aux[7].nombre);
+    //printf("array aux para el proceso %s: %s, %s, %s, %s, %s, %s, %s, %s\n", array_procesos[i].nombre, array_aux[0].nombre, array_aux[1].nombre, array_aux[2].nombre,
+    // array_aux[3].nombre, array_aux[4].nombre, array_aux[5].nombre, array_aux[6].nombre, array_aux[7].nombre);
     for (int n = 0; n < 8; n++){
       if (array_aux[n].nombre != prueba.nombre){
         array_empates[indice_empate] = array_aux[n];
         indice_empate += 1;
       }
     }
-  }
-
-  for (int i = 0; i < (indice_empate); i++){
-    printf("Array empate %s \n", array_empates[i].nombre);
   }
 
   array_total = calloc(n_procesos, sizeof(Process)); //HACER FREEEEEEEEEEEE
@@ -212,32 +233,150 @@ int main(int argc, char **argv)
         cont_array += 1;
       }
     }
-    printf("cont_array %i \n", cont_array);
+    //printf("cont_array %i \n", cont_array);
     if (cont_array == n_procesos){
       array_total[fin_empate] = array_procesos[i];
       fin_empate += 1;
     }
   }
 
-
-  for (int i = 0; i < n_procesos; i++){
-    printf("Array total %s \n", array_total[i].nombre);
-  }
-
   qsort(array_total, n_procesos, sizeof(Process), compareProcessByTiempo);
   for (int i = 0; i < n_procesos; i++){
-    cola_procesos.process[i] = array_total[i];
+    //cola_procesos.process[i] = array_total[i];
     printf("Proceso ordenado %s \n", array_total[i].nombre);
+    //printf("COlA lista %s\n", cola_procesos.process[i].nombre);
   }
 
-  //Agregar procesos en orden a la cola
-  //qsort(array_procesos, n_procesos, sizeof(Process), compareProcessByTiempo);
-  //for (int i = 0; i < n_procesos; i++){
-   // cola_procesos.process[i] = array_procesos[i];
-   // printf("Proceso ordenado %s \n", array_procesos[i].nombre);
- // }
+  //Metemos a la cola los procesos que parten en 0
+  for (int i = 0; i < n_procesos; i++){
+    if (array_total[i].tiempo_init == 0){
+      cola_procesos.process[i] = array_total[i];
+      printf("[t = %i] El proceso %s ha sido creado.\n", tiempo, cola_procesos.process[i].nombre);
+    }
+  }
 
-  input_file_destroy(file);
   
-} 
+  int contador_fin = n_procesos;
+  int cpu_ocupada = 0; // 0 = no ocupada, 1 = ocupada
+  int quantum = 0;
+  Process proceso_en_cpu;
+// waiting pasar a ready
+  while  (contador_fin > 0){
+    //Revisamos los procesos en WAITING y restamos 1 segundo de su restante
+    for (int l = 0; l < contador_fin; l++){
+      if (cola_procesos.process[l].estado == 7){ 
+        cola_procesos.process[l].tiempo_restante_io -= 1;
+        
+        // Revisamos si algún proceso en WAITING debe pasar a READY
+        if (cola_procesos.process[l].tiempo_restante_io == 0){
+          cola_procesos.process[l].estado = 5; //READY
+          printf("[t = %i] El proceso %s ha pasado a estado READY.\n", tiempo, cola_procesos.process[l].nombre);
+        }
+      }
+    }
+
+    if (cpu_ocupada == 1){
+      proceso_en_cpu.tiempo_restante_burst -= 1;
+      if ((proceso_en_cpu.tiempo_restante_burst == 0) && (proceso_en_cpu.burst_actual != proceso_en_cpu.bursts)){
+        proceso_en_cpu.io_actual += 1;
+        proceso_en_cpu.tiempo_restante_io = proceso_en_cpu.cpu_io[(proceso_en_cpu.io_actual * 2) - 1];
+        cpu_ocupada = 0;
+        proceso_en_cpu.estado = 7; // WAITING
+        
+        //MANDARLO QUE HAY QUE AL FINAL DE LA COLA
+        cola_procesos.process[contador_fin] = proceso_en_cpu;
+        contador_fin += 1;
+        for (int p = 0; p < contador_fin; p++){
+          if (proceso_en_cpu.nombre == cola_procesos.process[p].nombre){
+            cola_procesos.process[p].estado = proceso_en_cpu.estado;
+          }
+        }
+        printf("estado en cpu %i \n", proceso_en_cpu.estado);
+        printf("[t = %i] El proceso %s ha pasado a estado WAITING.\n", tiempo, proceso_en_cpu.nombre);
+      }
+      else if ((proceso_en_cpu.burst_actual == proceso_en_cpu.bursts) && (proceso_en_cpu.tiempo_restante_burst == 0)){
+        cpu_ocupada = 0;
+        proceso_en_cpu.estado = 8; //FINISHED
+        
+        printf("[t = %i] El proceso %s ha pasado a estado FINISHED.\n", tiempo, proceso_en_cpu.nombre);
+        for (int p = 0; p < contador_fin; p++){
+          if (proceso_en_cpu.nombre == cola_procesos.process[p].nombre){
+            cola_procesos.process[p].estado = proceso_en_cpu.estado;
+          }
+        }
+        contador_fin -= 1;
+        // falta sacarlo de la cola
+      }
+      else if (quantum == ((proceso_en_cpu.burst_actual * 2) - 2 - proceso_en_cpu.tiempo_restante_burst)){
+        cpu_ocupada = 0;
+        proceso_en_cpu.estado = 5; //READY
+        printf("[t = %i] El proceso %s ha pasado a estado READY.\n", tiempo, proceso_en_cpu.nombre);
+        cola_procesos.process[contador_fin] = proceso_en_cpu;
+        contador_fin += 1;
+        for (int p = 0; p < contador_fin; p++){
+          if (proceso_en_cpu.nombre == cola_procesos.process[p].nombre){
+            cola_procesos.process[p].estado = proceso_en_cpu.estado;
+          }
+        }
+        // proceso_en_cpu.tiempo_restante_burst = ????
+      }
+      else {
+        cpu_ocupada = 1;
+        proceso_en_cpu.estado = 6; //RUNNING
+      }
+    }
+
+    // Revisar tiempo general, ver si hay alguno nuevo que crear y meter en la cola
+    for (int k = 0; k < n_procesos; k++){
+      if (array_total[k].tiempo_init == tiempo){
+        cola_procesos.process[contador_fin] = array_total[k];
+        contador_fin += 1;
+        printf("[t = %i] El proceso %s ha sido creado.\n", tiempo, array_total[k].nombre);
+      }
+    }
+
+    if (cpu_ocupada == 0){
+      printf("entre al print cpu no ocupada en la linea 319 \n");
+      for (int i = 0; i < contador_fin; i++){
+        if (cola_procesos.process[i].estado == 5){
+          printf("cola_procesos.process[i].nombre en linea 324 %s\n", cola_procesos.process[i].nombre);
+          cpu_ocupada = 1;
+          printf("el del tpo 0 entro a la cpu \n");
+          proceso_en_cpu = cola_procesos.process[i];
+          if (proceso_en_cpu.tiempo_restante_burst == 0){
+            proceso_en_cpu.burst_actual += 1;
+            proceso_en_cpu.tiempo_restante_burst = proceso_en_cpu.cpu_io[(proceso_en_cpu.burst_actual * 2) - 2];
+          }
+          //CREAR QUANTUM
+          quantum = calcularQuantum(cola_procesos, proceso_en_cpu, contador_fin);
+
+          for (int p = 0; p < contador_fin; p++){
+            if (proceso_en_cpu.nombre == cola_procesos.process[p].nombre){
+              cola_procesos.process[p].estado = proceso_en_cpu.estado;
+            }
+          }
+          proceso_en_cpu.estado = 6; // RUNNING
+          printf("[t = %i] El proceso %s ha pasado a estado RUNNING.\n", tiempo, proceso_en_cpu.nombre);
+          // ACTUALIZAR ORDEN COLA
+          for (int j = 0; j < contador_fin; j++){
+            if (j > i){
+              cola_procesos.process[j - 1] = cola_procesos.process[j];
+            }
+          }
+          contador_fin -= 1;
+          break;
+          }
+          
+        }
+    }
+    //ACTUALIZAR ESTADISTICAS
+    sleep(1);
+    tiempo += 1;
+    printf("tiempo %i \n", tiempo);
+  }
+
+input_file_destroy(file);
+}
+  
+ 
   
