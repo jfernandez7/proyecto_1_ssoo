@@ -32,12 +32,17 @@ Process prueba = {
 
 void escribirArchivo(Process informacion[]){
   for (int i = 0; i < n_procesos; i++){
-    printf("nombre: %s \n", informacion[i].nombre);
+    printf("nombre: %s, turnos: %i, interrupciones: %i, turnaround: %i, responsetime: %i, waitingtime : %i \n", 
+    informacion[i].nombre, informacion[i].turnos_cpu, informacion[i].interrupciones, 
+    informacion[i].turnaround, informacion[i].response, informacion[i].waiting);
   }
-  //FILE *output = fopen(output_name, "w");
-   // fprintf(output, "%i", informacion);
+  FILE *output = fopen(output_name, "w");
+    for (int i = 0; i < n_procesos; i++){
+      fprintf(output, "%s,%i,%i,%i,%i,%i", informacion[i].nombre, informacion[i].turnos_cpu, informacion[i].interrupciones,
+      informacion[i].turnaround, informacion[i].response, informacion[i].waiting);
+    }
   // Se cierra el archivo (si no hay leak)
-  //fclose(output);
+  fclose(output);
 }
 
 int calcularQuantum (Cola cola_procesos, Process proceso_en_cpu, int largo_cola){
@@ -154,6 +159,7 @@ int main(int argc, char **argv)
       .waiting = 0
     };
     informacion[i] = nombre_proceso;
+    //printf("proceso agregado a informacion nombre :%s, turno: %i\n", informacion[i].nombre, informacion[i].turnos_cpu);
     for (int i = 0; i < ((int_bursts*2) - 1); i++){
       int valor;
       valor = atoi(line[i + 4]);
@@ -322,11 +328,18 @@ int main(int argc, char **argv)
       else if ((proceso_en_cpu.burst_actual == proceso_en_cpu.bursts) && (proceso_en_cpu.tiempo_restante_burst == 0)){
         cpu_ocupada = 0;
         proceso_en_cpu.estado = 8; //FINISHED
+        proceso_en_cpu.turnaround = tiempo - proceso_en_cpu.tiempo_init;
         
         printf("[t = %i] El proceso %s ha pasado a estado FINISHED.\n", tiempo, proceso_en_cpu.nombre);
         for (int p = 0; p < contador_fin; p++){
           if (proceso_en_cpu.nombre == cola_procesos.process[p].nombre){
-            cola_procesos.process[p].estado = proceso_en_cpu.estado;
+            //cola_procesos.process[p].estado = proceso_en_cpu.estado;
+            cola_procesos.process[p] = proceso_en_cpu;
+          }
+        }
+        for (int p = 0; p < n_procesos; p++){
+          if (proceso_en_cpu.nombre == informacion[p].nombre){
+            informacion[p] = proceso_en_cpu;
           }
         }
         procesos_finalizados += 1;
@@ -338,14 +351,21 @@ int main(int argc, char **argv)
         //printf("Se acabo por quantum \n");
         cpu_ocupada = 0;
         proceso_en_cpu.estado = 5; //READY
+        proceso_en_cpu.interrupciones += 1;
         printf("[t = %i] El proceso %s ha pasado a estado READY.\n", tiempo, proceso_en_cpu.nombre);
         proceso_en_cpu.cpu_io[(proceso_en_cpu.burst_actual * 2) - 2] = proceso_en_cpu.tiempo_restante_burst;
         cola_procesos.process[contador_fin] = proceso_en_cpu;
         contador_fin += 1;
         for (int p = 0; p < contador_fin; p++){
           if (proceso_en_cpu.nombre == cola_procesos.process[p].nombre){
-            cola_procesos.process[p].estado = proceso_en_cpu.estado;
-            cola_procesos.process[p].cpu_io = proceso_en_cpu.cpu_io;
+            cola_procesos.process[p] = proceso_en_cpu;
+            //cola_procesos.process[p].estado = proceso_en_cpu.estado;
+            //cola_procesos.process[p].cpu_io = proceso_en_cpu.cpu_io;
+          }
+        }
+        for (int p = 0; p < n_procesos; p++){
+          if (proceso_en_cpu.nombre == informacion[p].nombre){
+            informacion[p] = proceso_en_cpu;
           }
         }
         // proceso_en_cpu.tiempo_restante_burst = ????
@@ -383,16 +403,28 @@ int main(int argc, char **argv)
           }
           //CREAR QUANTUM
           quantum = calcularQuantum(cola_procesos, proceso_en_cpu, contador_fin);
+          proceso_en_cpu.estado = 6; // RUNNING
+          proceso_en_cpu.turnos_cpu += 1;
+
+          if (proceso_en_cpu.turnos_cpu == 1){
+            proceso_en_cpu.response = tiempo - proceso_en_cpu.tiempo_init;
+          } 
 
           for (int p = 0; p < contador_fin; p++){
             if (proceso_en_cpu.nombre == cola_procesos.process[p].nombre){
-              cola_procesos.process[p].estado = proceso_en_cpu.estado;
+              cola_procesos.process[p] = proceso_en_cpu;
+              //printf("turnos en cola %s, %i \n", cola_procesos.process[p].nombre, cola_procesos.process[p].turnos_cpu);
+              for (int j = 0; j < n_procesos; j++){
+                if (cola_procesos.process[p].nombre == informacion[j].nombre){
+                  informacion[j] = proceso_en_cpu;
+                  //printf("turnos en informacion %s, %i \n", informacion[j].nombre, informacion[j].turnos_cpu);
+                }
+              }
             }
           }
 
+               
           
-
-          proceso_en_cpu.estado = 6; // RUNNING
           printf("[t = %i] El proceso %s ha pasado a estado RUNNING.\n", tiempo, proceso_en_cpu.nombre);
           // ACTUALIZAR ORDEN COLA
           for (int j = 0; j < contador_fin; j++){
@@ -405,12 +437,28 @@ int main(int argc, char **argv)
           }
           
         }
+        
     }
     //ACTUALIZAR ESTADISTICAS
+    for (int p = 0; p < contador_fin; p++){
+      if ((cola_procesos.process[p].estado == 5) || (cola_procesos.process[p].estado == 7)){
+        for (int q = 0; q < n_procesos; q++){
+          if (cola_procesos.process[p].nombre == informacion[q].nombre){
+            cola_procesos.process[p].waiting += 1;
+            informacion[q] = cola_procesos.process[p];
+          }
+        }
+      }
+    }
     
     tiempo += 1;
   }
   
+
+//for (int i = 0; i < n_procesos; i++)
+//{
+//  printf("en cola nombre: %s, turnos: %i \n", cola_procesos.process[i].nombre, cola_procesos.process[i].turnos_cpu);
+//}
 
 escribirArchivo(informacion);
 input_file_destroy(file);
