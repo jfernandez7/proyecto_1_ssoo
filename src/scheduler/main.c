@@ -31,14 +31,15 @@ Process prueba = {
     };
 
 void escribirArchivo(Process informacion[]){
-  for (int i = 0; i < n_procesos; i++){
-    printf("nombre: %s, turnos: %i, interrupciones: %i, turnaround: %i, responsetime: %i, waitingtime : %i \n", 
-    informacion[i].nombre, informacion[i].turnos_cpu, informacion[i].interrupciones, 
-    informacion[i].turnaround, informacion[i].response, informacion[i].waiting);
-  }
+  //for (int i = 0; i < n_procesos; i++){
+  //  printf("nombre: %s, turnos: %i, interrupciones: %i, turnaround: %i, responsetime: %i, waitingtime : %i \n", 
+  //  informacion[i].nombre, informacion[i].turnos_cpu, informacion[i].interrupciones, 
+  //  informacion[i].turnaround, informacion[i].response, informacion[i].waiting);
+  //  printf("output name %s\n", output_name);
+  //}
   FILE *output = fopen(output_name, "w");
     for (int i = 0; i < n_procesos; i++){
-      fprintf(output, "%s,%i,%i,%i,%i,%i", informacion[i].nombre, informacion[i].turnos_cpu, informacion[i].interrupciones,
+      fprintf(output, "%s,%i,%i,%i,%i,%i\n", informacion[i].nombre, informacion[i].turnos_cpu, informacion[i].interrupciones,
       informacion[i].turnaround, informacion[i].response, informacion[i].waiting);
     }
   // Se cierra el archivo (si no hay leak)
@@ -74,7 +75,7 @@ int calcularQuantum (Cola cola_procesos, Process proceso_en_cpu, int largo_cola)
     }
   }
   int q  = (Q / (n_i * f));
-  printf("q = %i, n_i = %i, f = %i, Q = %i \n", q, n_i, f, Q);
+  //printf("q = %i, n_i = %i, f = %i, Q = %i \n", q, n_i, f, Q);
   return q;
 }
 int compareProcessByName(const void *v1, const void *v2)
@@ -176,12 +177,13 @@ int main(int argc, char **argv)
     .process = calloc(n_procesos, sizeof(Process)) //HACER FREEEEEEEEEEEE 
   };
   //Ordenar empates
-  Process array_usado[8];
+  //NO SE SI INICIALIZARLOS CON PRUEBA CAMBIA EN ALGO
+  Process array_usado[8] = {prueba, prueba, prueba, prueba, prueba, prueba, prueba, prueba};
   int cont_usado = 0;
 
   array_empates = calloc(n_procesos, sizeof(Process)); //HACER FREEEEEEEEEEEE
   int indice_empate = 0;
- 
+
   for (int i = 0; i < n_procesos; i++){
     Process array_aux[8] = {prueba, prueba, prueba, prueba, prueba, prueba, prueba, prueba};
     int continuar = 1;
@@ -313,7 +315,11 @@ int main(int argc, char **argv)
         proceso_en_cpu.tiempo_restante_io = proceso_en_cpu.cpu_io[(proceso_en_cpu.io_actual * 2) - 1];
         cpu_ocupada = 0;
         proceso_en_cpu.estado = 7; // WAITING
-        
+
+        if (quantum == (proceso_en_cpu.cpu_io[(proceso_en_cpu.burst_actual * 2) - 2] - proceso_en_cpu.tiempo_restante_burst)){
+          proceso_en_cpu.interrupciones += 1;
+        }
+
         //MANDARLO QUE HAY QUE AL FINAL DE LA COLA
         cola_procesos.process[contador_fin] = proceso_en_cpu;
         contador_fin += 1;
@@ -329,6 +335,10 @@ int main(int argc, char **argv)
         cpu_ocupada = 0;
         proceso_en_cpu.estado = 8; //FINISHED
         proceso_en_cpu.turnaround = tiempo - proceso_en_cpu.tiempo_init;
+
+        if (quantum == (proceso_en_cpu.cpu_io[(proceso_en_cpu.burst_actual * 2) - 2] - proceso_en_cpu.tiempo_restante_burst)){
+          proceso_en_cpu.interrupciones += 1;
+        }
         
         printf("[t = %i] El proceso %s ha pasado a estado FINISHED.\n", tiempo, proceso_en_cpu.nombre);
         for (int p = 0; p < contador_fin; p++){
@@ -461,6 +471,13 @@ int main(int argc, char **argv)
 //}
 
 escribirArchivo(informacion);
+for (int i = 0; i < n_procesos; i++){
+  free(array_total[i].cpu_io);
+}
+free(cola_procesos.process);
+free(array_procesos);
+free(array_empates);
+free(array_total);
 input_file_destroy(file);
 }
   
