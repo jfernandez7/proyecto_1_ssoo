@@ -19,6 +19,11 @@ typedef struct process {
   int io_actual;
   int tiempo_restante_burst;
   int tiempo_restante_io;
+  int turnos_cpu;
+  int interrupciones;
+  int turnaround;
+  int response;
+  int waiting;
 } Process;
 
 typedef struct queue {

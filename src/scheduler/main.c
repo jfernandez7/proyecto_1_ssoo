@@ -30,6 +30,16 @@ Process prueba = {
       .numero_fabrica = 5
     };
 
+void escribirArchivo(Process informacion[]){
+  for (int i = 0; i < n_procesos; i++){
+    printf("nombre: %s \n", informacion[i].nombre);
+  }
+  //FILE *output = fopen(output_name, "w");
+   // fprintf(output, "%i", informacion);
+  // Se cierra el archivo (si no hay leak)
+  //fclose(output);
+}
+
 int calcularQuantum (Cola cola_procesos, Process proceso_en_cpu, int largo_cola){
   int n_i = 0;
   int fabrica = proceso_en_cpu.numero_fabrica;
@@ -59,7 +69,7 @@ int calcularQuantum (Cola cola_procesos, Process proceso_en_cpu, int largo_cola)
     }
   }
   int q  = (Q / (n_i * f));
-  //printf("q = %i, n_i = %i, f = %i, Q = %i \n", q, n_i, f, Q);
+  printf("q = %i, n_i = %i, f = %i, Q = %i \n", q, n_i, f, Q);
   return q;
 }
 int compareProcessByName(const void *v1, const void *v2)
@@ -115,6 +125,8 @@ int main(int argc, char **argv)
 
   printf("Reading file of length %i:\n", file->len);
   n_procesos = file->len;
+  
+  Process informacion[n_procesos]; 
 
   array_procesos = calloc(n_procesos, sizeof(Process)); //HACER FREEEEEEEEEEEE
 
@@ -134,8 +146,14 @@ int main(int argc, char **argv)
       .bursts = atoi(line[3]),
       .burst_actual = 0,
       .io_actual = 0,
-      .cpu_io = calloc(((int_bursts*2) - 1), sizeof(int)) //HACER FREEEEEEEEEEEE
+      .cpu_io = calloc(((int_bursts*2) - 1), sizeof(int)), //HACER FREEEEEEEEEEEE
+      .turnos_cpu = 0,
+      .interrupciones = 0,
+      .turnaround = 0,
+      .response = 0,
+      .waiting = 0
     };
+    informacion[i] = nombre_proceso;
     for (int i = 0; i < ((int_bursts*2) - 1); i++){
       int valor;
       valor = atoi(line[i + 4]);
@@ -321,11 +339,13 @@ int main(int argc, char **argv)
         cpu_ocupada = 0;
         proceso_en_cpu.estado = 5; //READY
         printf("[t = %i] El proceso %s ha pasado a estado READY.\n", tiempo, proceso_en_cpu.nombre);
+        proceso_en_cpu.cpu_io[(proceso_en_cpu.burst_actual * 2) - 2] = proceso_en_cpu.tiempo_restante_burst;
         cola_procesos.process[contador_fin] = proceso_en_cpu;
         contador_fin += 1;
         for (int p = 0; p < contador_fin; p++){
           if (proceso_en_cpu.nombre == cola_procesos.process[p].nombre){
             cola_procesos.process[p].estado = proceso_en_cpu.estado;
+            cola_procesos.process[p].cpu_io = proceso_en_cpu.cpu_io;
           }
         }
         // proceso_en_cpu.tiempo_restante_burst = ????
@@ -387,10 +407,12 @@ int main(int argc, char **argv)
         }
     }
     //ACTUALIZAR ESTADISTICAS
-    sleep(1);
+    
     tiempo += 1;
   }
+  
 
+escribirArchivo(informacion);
 input_file_destroy(file);
 }
   
