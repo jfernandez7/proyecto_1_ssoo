@@ -294,19 +294,11 @@ int main(int argc, char **argv)
   //while  (contador_fin > 0){
   while  (procesos_finalizados < n_procesos){
     //printf("tiempo %i \n", tiempo);
-    //Revisamos los procesos en WAITING y restamos 1 segundo de su restante
-    for (int l = 0; l < contador_fin; l++){
-      if (cola_procesos.process[l].estado == 7){ 
-        cola_procesos.process[l].tiempo_restante_io -= 1;
-        
-        // Revisamos si algún proceso en WAITING debe pasar a READY
-        if (cola_procesos.process[l].tiempo_restante_io == 0){
-          cola_procesos.process[l].estado = 5; //READY
-          printf("[t = %i] El proceso %s ha pasado a estado READY.\n", tiempo, cola_procesos.process[l].nombre);
+  for (int l = 0; l < contador_fin; l++){
+        if (cola_procesos.process[l].estado == 7){ 
+          cola_procesos.process[l].tiempo_restante_io -= 1;
         }
       }
-    }
-
     if (cpu_ocupada == 1){
       proceso_en_cpu.tiempo_restante_burst -= 1;
       //printf("%i, %i, %i \n", quantum, proceso_en_cpu.cpu_io[(proceso_en_cpu.burst_actual * 2) - 2], proceso_en_cpu.tiempo_restante_burst);
@@ -444,11 +436,11 @@ int main(int argc, char **argv)
           }
           contador_fin -= 1;
           break;
-          }
-          
+          } 
         }
         
-    }
+  }
+  
     //ACTUALIZAR ESTADISTICAS
     for (int p = 0; p < contador_fin; p++){
       if ((cola_procesos.process[p].estado == 5) || (cola_procesos.process[p].estado == 7)){
@@ -460,7 +452,16 @@ int main(int argc, char **argv)
         }
       }
     }
-    
+    //Revisamos los procesos en WAITING y restamos 1 segundo de su restante
+    for (int l = 0; l < contador_fin; l++){
+      if (cola_procesos.process[l].estado == 7){         
+        // Revisamos si algún proceso en WAITING debe pasar a READY
+        if (cola_procesos.process[l].tiempo_restante_io == 0){
+          cola_procesos.process[l].estado = 5; //READY
+          printf("[t = %i] El proceso %s ha pasado a estado READY.\n", tiempo, cola_procesos.process[l].nombre);
+        }
+      }
+    }
     tiempo += 1;
   }
   
