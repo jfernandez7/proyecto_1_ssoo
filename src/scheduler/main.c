@@ -452,13 +452,13 @@ int main(int argc, char **argv)
         }
       }
     }
-    //Revisamos los procesos en WAITING y restamos 1 segundo de su restante
+    //Revisamos los procesos en WAITING que deben pasar a ready
     for (int l = 0; l < contador_fin; l++){
       if (cola_procesos.process[l].estado == 7){         
         // Revisamos si algún proceso en WAITING debe pasar a READY
-        if (cola_procesos.process[l].tiempo_restante_io == 0){
+        if (cola_procesos.process[l].tiempo_restante_io == 1){
           cola_procesos.process[l].estado = 5; //READY
-          printf("[t = %i] El proceso %s ha pasado a estado READY.\n", tiempo, cola_procesos.process[l].nombre);
+          printf("[t = %i] El proceso %s ha pasado a estado READY.\n", tiempo + 1, cola_procesos.process[l].nombre);
         }
       }
     }
