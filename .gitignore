@@ -1,0 +1,6 @@
+*.zip
+*.bin
+.vscode
+memfilled/
+obj/
+crms
