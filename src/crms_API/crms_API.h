@@ -38,3 +38,7 @@ int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes);
 void cr_delete_file(CrmsFile* file_desc);
 
 void cr_close(CrmsFile* file_desc);
+
+int transform_dirvir_pfn(unsigned char* dir_virtual, unsigned char* buffer, int i);
+
+void delete_framebit(int pfn);

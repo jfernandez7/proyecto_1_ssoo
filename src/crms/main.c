@@ -29,7 +29,7 @@ int main(int argc, char **argv)
   printf("respuesta cr_exists %i\n", resp);
   cr_ls_files(0);
   cr_start_process(120, "holaa");
-
+  cr_finish_process(0);
   //printf("%s\n", filename);
 
   //unsigned char buffer[4000];
