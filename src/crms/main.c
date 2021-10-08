@@ -19,12 +19,16 @@ int main(int argc, char **argv)
   printf("Proyecto 1\n");
   input_name = argv[1];
   char *filename = input_name;
-  char ruta[20];
-  sprintf(ruta, "../../%s", filename);
-  cr_mount(ruta);
+  //char ruta[20];
+  //sprintf(ruta, "../../%s", filename);
+  //cr_mount(ruta);
 
-  //cr_mount(filename);
+  cr_mount(filename);
   cr_ls_processes();
+  int resp = cr_exists(0, "secret.txt");
+  printf("respuesta cr_exists %i\n", resp);
+  cr_ls_files(0);
+  cr_start_process(120, "holaa");
 
   //printf("%s\n", filename);
 
