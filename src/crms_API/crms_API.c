@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <sys/wait.h>
+//#include <cstdint>
 
 char *ruta_local;
 //Funciones generales
@@ -31,7 +32,7 @@ void cr_ls_processes(){
             printf("Procesos en ejecución, id: %u \n", id);
         }   
     }
-    
+    fclose(ptr);
 }
 
 int cr_exists(int process_id, char* file_name){
@@ -56,6 +57,7 @@ int cr_exists(int process_id, char* file_name){
             }       
         }  
     }
+    fclose(ptr);
     return 0;
     
 }
@@ -81,6 +83,7 @@ void cr_ls_files(int process_id){
             }       
         }  
     }
+    fclose(ptr);
 }
 
 //Funciones procesos
@@ -96,18 +99,46 @@ void cr_start_process(int process_id, char* process_name){
     for (int i = 0; i < 16; i++){
         int cont = 0;
         for (int j = 0; j < 256; j++){
-            if (buffer[j] == 0){
+            int numero = buffer[256*i + j];
+            if (numero == 0){
                 cont += 1;
             }  
         }
+        printf("Cont = %i\n", cont);
         if (cont == 256){
            pos_a_escribir = i; 
            break;
         }  
     }
+    fclose(ptr);
+    
+    printf("Pos %i\n", pos_a_escribir);
+    printf("Estado antes = %u\n", buffer[pos_a_escribir*256]);
+    printf("Id antes = %u\n", buffer[pos_a_escribir*256 + 1]);
+    //printf("Tamaño = %lu\n", sizeof(unsigned char));
+    //printf("Tamaño = %li\n", sizeof(uint8_t));
 
-    
-    
+    FILE *ptr2;
+    ptr2 = fopen(ruta_local,"rb+");
+
+    unsigned char estado;
+    unsigned char id;
+    estado = 1;
+    id = process_id;
+    fseek(ptr2, pos_a_escribir*256*sizeof(unsigned char), SEEK_SET);
+    fwrite(&estado, sizeof(unsigned char), 1, ptr2);
+    fseek(ptr2, (pos_a_escribir*256 + 1)*sizeof(unsigned char), SEEK_SET);
+    fwrite(&id, sizeof(unsigned char), 1, ptr2);
+    fclose(ptr2);
+
+    unsigned char buffer2[4096];
+    FILE *ptr3;
+    ptr3 = fopen(ruta_local,"rb");  // r for read, b for binary
+    fread(buffer2, sizeof(buffer2), 1, ptr3); // read 10 bytes to our buffer
+    printf("Numero despues = %u\n", buffer2[pos_a_escribir*256]);
+    printf("Id despues = %u\n", buffer2[pos_a_escribir*256 + 1]);
+
+
     //fseek(ptr, 2, SEEK_CUR);
     //fputc(1, ptr);
     //fclose(ptr);
