@@ -7,6 +7,7 @@
 
 // Define the struct
 typedef struct crmsfile {
+  int buffer_iterator;
   int process_id;
   char *file_name;
   char mode;
@@ -17,7 +18,17 @@ typedef struct crmsfile {
 
 } CrmsFile; //struct de archivos abiertos
 
+typedef struct options {
+  int valid_quantity;
+  int ordered[10][2];
+} Options;
+
+
+
 //Funciones generales
+
+
+Options* sort_valid_process_files(int array[10][2]);
 
 void cr_mount(char* memory_path);
 

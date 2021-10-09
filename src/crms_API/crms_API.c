@@ -304,7 +304,7 @@ CrmsFile* cr_open(int process_id, char* file_name, char mode){
     int exists = cr_exists(process_id, file_name);
     if ((mode == 'r' && exists == 1) || (mode == 'w' && exists == 0)){
         // checks that file exists & returns CrmsFile*
-        CrmsFile* crms_file = calloc(sizeof(CrmsFile));
+        CrmsFile* crms_file = calloc(1, sizeof(CrmsFile));
         crms_file -> file_name = file_name;
         crms_file -> process_id = process_id;
         crms_file -> mode = mode;
@@ -325,8 +325,36 @@ CrmsFile* cr_open(int process_id, char* file_name, char mode){
     // PENDIENTES
     // Qué devolver en otro caso?
     // Qué poner en otros campos (en ifs)
+    // Hay que crear el archivo en la memoria?
 
 } 
+
+int transform_int_dirvir_pfn(int vpn, unsigned char * buffer, int i){
+    
+    unsigned char mask = 1; // Bit mask
+    unsigned char pfn_byte = buffer[256*i + 224 + vpn];
+    unsigned char bits_3[8];
+    for (int i = 0; i < 8; i++) {
+        // Mask each bit in the byte and store it
+        bits_3[i] = (pfn_byte & (mask << i)) != 0;
+    }
+    unsigned char pfns[8] = {
+        bits_3[0],
+        bits_3[1],
+        bits_3[2],
+        bits_3[3],
+        bits_3[4],
+        bits_3[5],
+        bits_3[6],
+        0,
+    };
+    int pfn = 0;
+    for(int i=0; i<8; i++){
+        pfn += pfns[i] * pow(2, i);
+    }
+    return pfn;
+
+}
 
 int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
     // - Confirmar modo write
@@ -354,6 +382,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
             // si coinicde con proceso buscado
             if (id == file_desc -> process_id && validez == 1){
+                file_desc -> buffer_iterator = i;
                 // reviso sus archivos
                 for (int j = 0; j < 10; j++){
                     // para cada uno, guardo su direccion y su tamaño
@@ -376,13 +405,85 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
             printf("direccion: %d / tamaño: %d\n", starts[i][0], starts[i][1]);
         }
 
-        // - Encontrar proximo espacio disponible -> itero sobre la memoria virtual chequeando solo páginas válidas
-        // - Si tiene 10 archivos fuiste
+        Options * sorted = sort_valid_process_files(starts);
+
+        for (int i = 0; i < sorted -> valid_quantity ; i++){
+            printf("direccion: %d / tamaño: %d\n", sorted -> ordered[i][0], sorted -> ordered[i][1]);
+        }
+
+        if (sorted -> valid_quantity == 10){
+// ------------------------comprobar q es uno de los existentes y osino:
+            printf("Sorry flaco, ya hay 10 arxivos :/\n");
+// ------------------------no sabemos que retornar
+            return 0;
+        }
+
+        // Osino itero sobre lista y hay dos posibles escenarios
+        // 1. El primero de la lista ordenada no esté guardado en 0: en 0 guardamos este archivo
+        // 2. El primero de la lista ordenada sí sea 0, avanzamos hasta encontrar espacio disponible (máximo 1073741824 creemos)
+
+        int pfn_inicial = 0;
+        int pfn_final = 0;
+
+        if (sorted -> ordered[0][0] != 0){
+            // Caso 1
+            pfn_inicial = transform_int_dirvir_pfn(0, buffer_starts, file_desc -> buffer_iterator);
+            pfn_final = transform_int_dirvir_pfn(sorted -> ordered[0][0], buffer_starts, file_desc -> buffer_iterator);    
+        }
+        else {
+            // Caso 2: recorremos 
+            
+            int found = 0;
+            int max = 268435456;
+            
+            for (int i = 0; i < sorted -> valid_quantity - 1; i += 1){
+                    printf("indice en %d\n", i);
+                    int a = sorted -> ordered [i][0];
+                    printf("HOLA %d \n", a);
+                    int b = sorted -> ordered [i][1];
+                    printf("HOLA %d \n", b);
+                    int c = sorted -> ordered [i + 1][0];
+                    printf("HOLA %d \n", c);
+
+                    // comparacion es b + a < c
+                    // if (b  + a <= c - 1){
+                    //     printf("entre\n");
+                    //     // pfn_inicial = transform_int_dirvir_pfn(sorted -> ordered [i][0], buffer_starts, file_desc -> buffer_iterator);
+                    //     // pfn_final = transform_int_dirvir_pfn(sorted -> ordered[i + 1][0], buffer_starts, file_desc -> buffer_iterator);
+                    //     found = 1;
+                    //     printf("entreeee\n");
+                    // }
+            }
+            if (found == 0){
+                // compruebo que hay espacio al final y osino no cabe
+                // COMPROBAR SI SE PUEDE ESCRIBIR HASTA MAX O MAX - 1 E IMPLICANCIAS
+                int final_available = sorted -> ordered [sorted -> valid_quantity - 1][0] + sorted -> ordered [sorted -> valid_quantity - 1][1];
+                if (final_available < max - 1){
+                    pfn_inicial = transform_int_dirvir_pfn(final_available, buffer_starts, file_desc -> buffer_iterator);
+                    pfn_final = transform_int_dirvir_pfn(max - 1, buffer_starts, file_desc -> buffer_iterator);
+                }
+                else{
+//------------------------------- NO CABE 
+                    printf("Sorry flaco, no cabe tu arxivo :/\n");
+                    return 0;
+                }
+
+
+            }
+                
+        }
+        printf("PFN inicial calculado: %d/ final: %d\n", pfn_inicial, pfn_final);   
+
+        
+
+        // - Encontrar proximo espacio disponible -> itero sobre la memoria virtual 
+        // - Si tiene 10 archivos return
         // - Partimos chequeando en memoria más "arriba"
         // - Guardar frame o pagina en tabla 
         // - escribir los bytes
         // - almacenar memoria usada (tamaño) en la tabla y en el struct
-        // - devolver los bytes escritos
+        // - devolver cantidad bytes escritos
+        // *SUPUESTO* suma de espacios válidos para procesos es menor o igual a memoria real (no permite sobreescribir)
 
     }
     else {
@@ -405,4 +506,87 @@ void cr_delete_file(CrmsFile* file_desc){
 
 void cr_close(CrmsFile* file_desc){
     
+}
+
+Options* sort_valid_process_files(int array[10][2]){
+
+    // Aquí dejo el espacio para los 10 archivos ordenados
+
+    Options* sorted = calloc(1, sizeof(Options));
+
+    // Luego fijo la diferencia a proximo archivo (limite final de memoria contigua) muy lejos 
+
+    int difference = 1000000000;
+    int index = -1;
+
+    // y creo el indice para ir guardando en ordered 
+    int final_index_counter = 0;
+
+    // Identifico el primer archivo
+    for (int i = 0; i < 10; i++){
+
+        if (array[i][0] == 0 && array[i][1] != 0){
+            index = i;
+            break;
+        }
+        else if (array[i][0] < difference && array[i][1] != 0){
+            difference = array[i][0];
+            index = i;
+        }
+    }
+
+    // y luego en un ciclo
+    while (1){
+        // guardo el caso identificado en el proximo espacio de ordered
+        sorted -> ordered[final_index_counter][0] = array[index][0];
+        sorted -> ordered[final_index_counter][1] = array[index][1];
+        final_index_counter ++;
+
+        // calculo cual es el proximo inicio si memoria fuera usada contiguamente
+        int next_position = array[index][0] + array[index][1];
+        
+        // seteo las variables para encontrar al proximo mas cercano si no fuera contiguo
+        int partial_difference = 1000000000;
+        int partial_index = -1;
+        int found = 0;
+        
+
+        for (int i = 0; i < 10; i++){
+            // encontré el contiguo
+            if (array[i][0] == next_position && array[i][1] != 0){
+                index = i;
+                found = 1;
+                break;
+            }
+            // pruebo mejor opción considerando que
+            // el inicio del archivo en observación es mayor al inciio del último archivo recién ordenado
+            // que la diferencia es la más chica de entre las opciones
+            // que su tamaño es mayor a 0
+            else if (
+            array[i][0] > sorted -> ordered[final_index_counter - 1][0] 
+            && array[i][0] - next_position < partial_difference 
+            && array[i][1] != 0){
+                partial_difference = array[i][0];
+                partial_index = i;
+                found = 2;
+            }
+        }
+        // found = 1 encontré contiguo asique paso a proxima iteracion de while
+        if (found != 1){
+            // found = 0 no hay más archivos por ordenar, break del while
+            if (found == 0){
+                break;
+            }
+            // found = 2 hay un archivo identificado pero no contiguo
+            else {
+                index = partial_index;
+            }   
+        }
+    }
+    // guardamos cantidad de archivos
+    sorted -> valid_quantity = final_index_counter;
+    
+    return sorted;
+
+
 }
