@@ -70,12 +70,15 @@ void cr_ls_files(int process_id){
     ptr = fopen(ruta_local,"rb");  // r for read, b for binary
     fread(buffer, sizeof(buffer), 1, ptr); // read 10 bytes to our buffer
     char archivo2[12];
-
+    // capacidad de procesos
     for (int i = 0; i < 16; i++){
+        // si coincido con proceso buscado
         int id = buffer[(i * 256) + 1];
         if (id == process_id){
+            // archivis
             for (int j = 0; j < 10; j++){
                 for (int k = 0; k < 12; k++){
+                    // 256 --> proceso / 21 -> archivo / 14 info proceso / k + 1 para saltarse el de validez
                     archivo2[k] = (char)buffer[256*i + 15 + 21*j + k];
                 }
                 if (0 != strlen(archivo2)){
@@ -196,6 +199,20 @@ void cr_finish_process(int process_id){
 
 //Funciones archivos
 
+// converts 4-bytes big endian to 32-bits positive integer
+unsigned long int from4bi(char const * const buffer)
+{
+    
+	unsigned long int value = 0;
+	
+	value += (unsigned char) buffer[0] << 8 * 3;
+	value += (unsigned char) buffer[1] << 8 * 2;
+	value += (unsigned char) buffer[2] << 8 * 1;
+	value += (unsigned char) buffer[3] << 8 * 0;
+	
+	return value;
+}
+
 void delete_framebit(int pfn){
     //Cual es el byte que tenemos que editar
     int byte_index = (int)floor((double)pfn/(double)8);
@@ -284,14 +301,101 @@ int transform_dirvir_pfn(unsigned char* dir_virtual, unsigned char *buffer, int 
 }
 
 CrmsFile* cr_open(int process_id, char* file_name, char mode){
+    int exists = cr_exists(process_id, file_name);
+    if ((mode == 'r' && exists == 1) || (mode == 'w' && exists == 0)){
+        // checks that file exists & returns CrmsFile*
+        CrmsFile* crms_file = calloc(sizeof(CrmsFile));
+        crms_file -> file_name = file_name;
+        crms_file -> process_id = process_id;
+        crms_file -> mode = mode;
+        crms_file -> pointer = 0;
+        if (exists == 1){
+            printf("Existía el archivo que se solicitó leer\n");
+            // crms_file -> size = ;
+            // crms_file -> virtual_address = ;
+        }
+        else {
+            printf("No existía el archivo que se solicitó escribir\n");
+            // crms_file -> size = 0;
+        }
+        return crms_file;
+    }
+    printf("Error en cr_open\n");
 
-} //mode puede ser 'r' o 'w'
+    // PENDIENTES
+    // Qué devolver en otro caso?
+    // Qué poner en otros campos (en ifs)
+
+} 
 
 int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
+    // - Confirmar modo write
+    if (file_desc -> mode == 'w'){
+
+        // direccion, tamaño
+        int starts[10][2];
+        int counter = 0;
+        unsigned char buffer_starts[4096];
+        FILE *ptr;
+
+        ptr = fopen(ruta_local,"rb");  // r for read, b for binary
+        fread(buffer_starts, sizeof(buffer_starts), 1, ptr); // read 10 bytes to our buffer
+
+        char direction[4];
+        char size[4];
+
+        // capacidad de procesos
+        for (int i = 0; i < 16; i++){
+
+            int id = buffer_starts[(i * 256) + 1];
+            int validez = buffer_starts[(i * 256)];
+
+            printf("ID %d!: %d\n", i, id);
+
+            // si coinicde con proceso buscado
+            if (id == file_desc -> process_id && validez == 1){
+                // reviso sus archivos
+                for (int j = 0; j < 10; j++){
+                    // para cada uno, guardo su direccion y su tamaño
+                    for (int k = 0; k < 4; k++){
+                        // 256 --> proceso / 21 -> archivo / 14 info proceso / k + 17 para llegar a la direccion
+                        direction[k] = buffer_starts[256*i + 14 + 21*j + k + 17];
+                        size[k] = buffer_starts[256*i + 14 + 21*j + k + 13];
+                        // printf(" direction %c / size %c\n", buffer_starts[256*i + 14 + 21*j + k + 17], buffer_starts[256*i + 14 + 21*j + k + 13]);
+                    }
+                    // metemos al arreglo dir + size de archivo    
+                    starts[counter][0] = from4bi(direction);
+                    starts[counter][1] = from4bi(size);
+                    counter ++;
+                }       
+            }  
+        }
+        fclose(ptr);
+
+        for (int i = 0; i < 10; i++){
+            printf("direccion: %d / tamaño: %d\n", starts[i][0], starts[i][1]);
+        }
+
+        // - Encontrar proximo espacio disponible -> itero sobre la memoria virtual chequeando solo páginas válidas
+        // - Si tiene 10 archivos fuiste
+        // - Partimos chequeando en memoria más "arriba"
+        // - Guardar frame o pagina en tabla 
+        // - escribir los bytes
+        // - almacenar memoria usada (tamaño) en la tabla y en el struct
+        // - devolver los bytes escritos
+
+    }
+    else {
+        // abri el archivo en el modo equivocado
+        // RAISE ERROR?
+    }
+    
+
 
 }
 
 int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes){
+
 
 }
 

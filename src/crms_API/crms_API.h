@@ -7,8 +7,14 @@
 
 // Define the struct
 typedef struct crmsfile {
-  int pid;
-  char *nombre;
+  int process_id;
+  char *file_name;
+  char mode;
+  int virtual_address;
+  int pointer;
+  unsigned int size;
+
+
 } CrmsFile; //struct de archivos abiertos
 
 //Funciones generales
