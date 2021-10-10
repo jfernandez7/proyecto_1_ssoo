@@ -21,14 +21,16 @@ typedef struct crmsfile {
 typedef struct options {
   int valid_quantity;
   int ordered[10][2];
+  unsigned char * virmems[10];
 } Options;
 
 
 
 //Funciones generales
+int virmem_to_vpn(int vir_mem);
 
 
-Options* sort_valid_process_files(int array[10][2]);
+Options* sort_valid_process_files(int array[10][2], unsigned char * virmems [10]);
 
 void cr_mount(char* memory_path);
 

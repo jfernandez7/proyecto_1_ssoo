@@ -213,6 +213,15 @@ unsigned long int from4bi(char const * const buffer)
 	return value;
 }
 
+// converts 32-bits positive integer to 4-bytes big endian
+void to4bi(unsigned long int const value, char * const buffer)
+{
+	buffer[0] = value >> 8 * 3;
+	buffer[1] = value >> 8 * 2;
+	buffer[2] = value >> 8 * 1;
+	buffer[3] = value >> 8 * 0;
+}
+
 void delete_framebit(int pfn){
     //Cual es el byte que tenemos que editar
     int byte_index = (int)floor((double)pfn/(double)8);
@@ -246,8 +255,13 @@ void delete_framebit(int pfn){
 }
 
 int transform_dirvir_pfn(unsigned char* dir_virtual, unsigned char *buffer, int i){
+    printf("hola dirvir : %s\n", dir_virtual);
     unsigned char byte_1 = dir_virtual[0];// Read from file
+    printf("hola dirvin2\n");
+
     unsigned char byte_2 = dir_virtual[1];// Read from file
+    printf("hola dirvin3\n");
+
     unsigned char mask = 1; // Bit mask
     unsigned char bits_1[8];
     unsigned char bits_2[8];
@@ -329,39 +343,15 @@ CrmsFile* cr_open(int process_id, char* file_name, char mode){
 
 } 
 
-int transform_int_dirvir_pfn(int vpn, unsigned char * buffer, int i){
-    
-    unsigned char mask = 1; // Bit mask
-    unsigned char pfn_byte = buffer[256*i + 224 + vpn];
-    unsigned char bits_3[8];
-    for (int i = 0; i < 8; i++) {
-        // Mask each bit in the byte and store it
-        bits_3[i] = (pfn_byte & (mask << i)) != 0;
-    }
-    unsigned char pfns[8] = {
-        bits_3[0],
-        bits_3[1],
-        bits_3[2],
-        bits_3[3],
-        bits_3[4],
-        bits_3[5],
-        bits_3[6],
-        0,
-    };
-    int pfn = 0;
-    for(int i=0; i<8; i++){
-        pfn += pfns[i] * pow(2, i);
-    }
-    return pfn;
 
-}
 
 int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
     // - Confirmar modo write
     if (file_desc -> mode == 'w'){
 
-        // direccion, tamaño
+        // direccion, tamaño, bits
         int starts[10][2];
+        unsigned char * virmems [10];
         int counter = 0;
         unsigned char buffer_starts[4096];
         FILE *ptr;
@@ -395,6 +385,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
                     // metemos al arreglo dir + size de archivo    
                     starts[counter][0] = from4bi(direction);
                     starts[counter][1] = from4bi(size);
+                    virmems[counter] = direction;
                     counter ++;
                 }       
             }  
@@ -405,10 +396,10 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
             printf("direccion: %d / tamaño: %d\n", starts[i][0], starts[i][1]);
         }
 
-        Options * sorted = sort_valid_process_files(starts);
+        Options * sorted = sort_valid_process_files(starts, virmems);
 
         for (int i = 0; i < sorted -> valid_quantity ; i++){
-            printf("direccion: %d / tamaño: %d\n", sorted -> ordered[i][0], sorted -> ordered[i][1]);
+            printf("VALID direccion: %d / tamaño: %d\n", sorted -> ordered[i][0], sorted -> ordered[i][1]);
         }
 
         if (sorted -> valid_quantity == 10){
@@ -424,44 +415,69 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
         int pfn_inicial = 0;
         int pfn_final = 0;
+        int vpn_inicial = 0;
+        int vpn_final = 0;
+        // maximo de 32 páginas de 8 mb cu
+        int max = 255999999;
 
-        if (sorted -> ordered[0][0] != 0){
+        if(sorted -> valid_quantity == 0 || sorted -> ordered[0][0] != 0){
             // Caso 1
-            pfn_inicial = transform_int_dirvir_pfn(0, buffer_starts, file_desc -> buffer_iterator);
-            pfn_final = transform_int_dirvir_pfn(sorted -> ordered[0][0], buffer_starts, file_desc -> buffer_iterator);    
+
+            // inicia en 0
+            vpn_inicial = 0;
+
+            // termina como maximo al prinicipio del primer archivo
+            vpn_final = sorted -> ordered[0][0];
+            if (sorted -> valid_quantity == 0){
+                printf("entre qui qiiwiidvshkacavd\n");
+                // No hay archivos, el fin es el límite
+                vpn_final = max;
+                printf("final %d\n", vpn_final);
+
+
+            }
+  
         }
         else {
             // Caso 2: recorremos 
             
             int found = 0;
-            int max = 268435456;
+            
             
             for (int i = 0; i < sorted -> valid_quantity - 1; i += 1){
-                    printf("indice en %d\n", i);
-                    int a = sorted -> ordered [i][0];
-                    printf("HOLA %d \n", a);
-                    int b = sorted -> ordered [i][1];
-                    printf("HOLA %d \n", b);
-                    int c = sorted -> ordered [i + 1][0];
-                    printf("HOLA %d \n", c);
+                    int start_1 = sorted -> ordered [i][0];
+                    int size = sorted -> ordered [i][1];
+                    int start_2 = sorted -> ordered [i + 1][0];
 
-                    // comparacion es b + a < c
-                    // if (b  + a <= c - 1){
-                    //     printf("entre\n");
-                    //     // pfn_inicial = transform_int_dirvir_pfn(sorted -> ordered [i][0], buffer_starts, file_desc -> buffer_iterator);
-                    //     // pfn_final = transform_int_dirvir_pfn(sorted -> ordered[i + 1][0], buffer_starts, file_desc -> buffer_iterator);
-                    //     found = 1;
-                    //     printf("entreeee\n");
-                    // }
+
+                    // encontré espacio disponible entremedio 
+                    if (start_1 + size < start_2 ){
+
+                        found = 1;
+
+                        // inicia en final de archivo i
+                        vpn_inicial = sorted -> ordered [i][0] + sorted -> ordered [i][1]; 
+
+                        // termina como maximo al inicio de archivo i + 1
+                        vpn_final = sorted -> ordered [i + 1][0];
+
+                    }
             }
             if (found == 0){
                 // compruebo que hay espacio al final y osino no cabe
                 // COMPROBAR SI SE PUEDE ESCRIBIR HASTA MAX O MAX - 1 E IMPLICANCIAS
+
                 int final_available = sorted -> ordered [sorted -> valid_quantity - 1][0] + sorted -> ordered [sorted -> valid_quantity - 1][1];
+
                 if (final_available < max - 1){
-                    pfn_inicial = transform_int_dirvir_pfn(final_available, buffer_starts, file_desc -> buffer_iterator);
-                    pfn_final = transform_int_dirvir_pfn(max - 1, buffer_starts, file_desc -> buffer_iterator);
+
+                    // inicia en ultimo archivo + tamaño
+                    vpn_inicial = sorted -> ordered [sorted -> valid_quantity][0] + sorted -> ordered [sorted -> valid_quantity][1];
+
+                    // termina como maximo al final de la memoria
+                    vpn_final = max;
                 }
+                
                 else{
 //------------------------------- NO CABE 
                     printf("Sorry flaco, no cabe tu arxivo :/\n");
@@ -472,6 +488,20 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
             }
                 
         }
+        // calculo pfn inicial
+        unsigned char * buffer_vpn_inicial[4];
+        to4bi(vpn_inicial, buffer_vpn_inicial);
+        pfn_inicial = transform_dirvir_pfn(buffer_vpn_inicial, buffer_starts, file_desc -> buffer_iterator);
+
+        // calculo pfn final
+        unsigned char * buffer_vpn_final[4];
+        printf("entre qui ---------------------- %d\n", vpn_final);
+
+        to4bi(vpn_final, buffer_vpn_final);
+        pfn_final = transform_dirvir_pfn(buffer_vpn_final, buffer_starts, file_desc -> buffer_iterator);
+
+        printf("VPN inicial calculado: %d/ final: %d\n", vpn_inicial, vpn_final);   
+
         printf("PFN inicial calculado: %d/ final: %d\n", pfn_inicial, pfn_final);   
 
         
@@ -487,13 +517,14 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
     }
     else {
+
         // abri el archivo en el modo equivocado
         // RAISE ERROR?
     }
     
 
 
-}
+ }
 
 int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes){
 
@@ -508,7 +539,11 @@ void cr_close(CrmsFile* file_desc){
     
 }
 
-Options* sort_valid_process_files(int array[10][2]){
+int virmem_to_vpn(int vir_mem){
+    
+}
+
+Options* sort_valid_process_files(int array[10][2], unsigned char * virmems [10]){
 
     // Aquí dejo el espacio para los 10 archivos ordenados
 
@@ -521,25 +556,35 @@ Options* sort_valid_process_files(int array[10][2]){
 
     // y creo el indice para ir guardando en ordered 
     int final_index_counter = 0;
+    int actualizado = 0;
 
     // Identifico el primer archivo
     for (int i = 0; i < 10; i++){
 
         if (array[i][0] == 0 && array[i][1] != 0){
             index = i;
+            actualizado = 1;
             break;
         }
         else if (array[i][0] < difference && array[i][1] != 0){
             difference = array[i][0];
             index = i;
+            actualizado = 1;
         }
     }
 
+    int files_exist = 1;
+    if (actualizado == 0){
+        // No hay archivos
+        files_exist = 0;
+    }
+
     // y luego en un ciclo
-    while (1){
+    while (files_exist){
         // guardo el caso identificado en el proximo espacio de ordered
         sorted -> ordered[final_index_counter][0] = array[index][0];
         sorted -> ordered[final_index_counter][1] = array[index][1];
+        sorted -> virmems[final_index_counter] = virmems[index];
         final_index_counter ++;
 
         // calculo cual es el proximo inicio si memoria fuera usada contiguamente
