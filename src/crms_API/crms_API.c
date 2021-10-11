@@ -413,12 +413,16 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         // 1. El primero de la lista ordenada no esté guardado en 0: en 0 guardamos este archivo
         // 2. El primero de la lista ordenada sí sea 0, avanzamos hasta encontrar espacio disponible (máximo 1073741824 creemos)
 
-        int pfn_inicial = 0;
-        int pfn_final = 0;
-        int vpn_inicial = 0;
-        int vpn_final = 0;
+        unsigned int pfn_inicial = 0;
+        unsigned int pfn_final = 0;
+        unsigned int vpn_inicial = 0;
+        unsigned int vpn_final = 0;
         // maximo de 32 páginas de 8 mb cu
-        int max = 255999999;
+        // revisar max
+        // unsigned int max = 255999999; 
+        // 00000000010000000000000000000000
+        unsigned int max = 268435455;
+        printf("Unsigned %u\n", (unsigned int)(pow(2, 23) - 1));
 
         if(sorted -> valid_quantity == 0 || sorted -> ordered[0][0] != 0){
             // Caso 1
@@ -490,6 +494,10 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         }
         // calculo pfn inicial
         unsigned char * buffer_vpn_inicial[4];
+        // Calculo de los offset final e inicial
+        // (32 - 23 = 9 --> Cantidad de lugares que sobran a las izq en el número)
+        unsigned int initial_offset = (vpn_inicial << 9) >> 9;
+        unsigned int final_offset = (vpn_final << 9) >> 9;
         to4bi(vpn_inicial, buffer_vpn_inicial);
         pfn_inicial = transform_dirvir_pfn(buffer_vpn_inicial, buffer_starts, file_desc -> buffer_iterator);
 
@@ -500,10 +508,19 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         to4bi(vpn_final, buffer_vpn_final);
         pfn_final = transform_dirvir_pfn(buffer_vpn_final, buffer_starts, file_desc -> buffer_iterator);
 
+        printf("Offset inicial calculado: %ld / final: %ld\n", initial_offset, final_offset);
+
         printf("VPN inicial calculado: %d/ final: %d\n", vpn_inicial, vpn_final);   
 
-        printf("PFN inicial calculado: %d/ final: %d\n", pfn_inicial, pfn_final);   
 
+        // Calculo de direcciones de memoria
+        // Se corren los pfn 25 lugares a la izquierda
+        // 32(largo numero) - 7(largo pfn) = 25
+        // Y se suma el offset respectivo
+        pfn_inicial = (pfn_inicial << 25) + initial_offset;  
+        pfn_final = (pfn_final << 25) + final_offset;  
+
+        printf("PFN inicial calculado: %u/ final: %u\n", pfn_inicial, pfn_final);
         
 
         // - Encontrar proximo espacio disponible -> itero sobre la memoria virtual 
