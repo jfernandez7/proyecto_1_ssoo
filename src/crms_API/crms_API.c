@@ -12,6 +12,30 @@
 char *ruta_local;
 //Funciones generales
 
+char* itoa(int value, char* result, int base) {
+    // check that the base if valid
+    if (base < 2 || base > 36) { *result = '\0'; return result; }
+
+    char* ptr = result, *ptr1 = result, tmp_char;
+    int tmp_value;
+
+    do {
+        tmp_value = value;
+        value /= base;
+        *ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
+    } while ( value );
+
+    // Apply negative sign
+    if (tmp_value < 0) *ptr++ = '-';
+    *ptr-- = '\0';
+    while(ptr1 < ptr) {
+        tmp_char = *ptr;
+        *ptr--= *ptr1;
+        *ptr1++ = tmp_char;
+    }
+    return result;
+}
+
 void cr_mount(char* memory_path){
     printf("cr_mount \n");
     ruta_local = memory_path;
@@ -287,6 +311,7 @@ int transform_dirvir_pfn(unsigned char* dir_virtual, unsigned char *buffer, int 
     // }
     int vpn = 0;
     for(int i=0; i<8; i++){
+        printf("VPN %d: %d\n", i, vpns[i]);
         vpn += vpns[i] * pow(2, i);
     }
     printf("%i\n", vpn);
@@ -309,6 +334,7 @@ int transform_dirvir_pfn(unsigned char* dir_virtual, unsigned char *buffer, int 
     };
     int pfn = 0;
     for(int i=0; i<8; i++){
+        printf("PFN %d: %d\n", i, pfns[i]);
         pfn += pfns[i] * pow(2, i);
     }
     return pfn;
@@ -356,7 +382,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         unsigned char buffer_starts[4096];
         FILE *ptr;
 
-        ptr = fopen(ruta_local,"rb");  // r for read, b for binary
+        ptr = fopen(ruta_local,"rb+");  // r for read, b for binary
         fread(buffer_starts, sizeof(buffer_starts), 1, ptr); // read 10 bytes to our buffer
 
         char direction[4];
@@ -390,7 +416,6 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
                 }       
             }  
         }
-        fclose(ptr);
 
         for (int i = 0; i < 10; i++){
             printf("direccion: %d / tamaño: %d\n", starts[i][0], starts[i][1]);
@@ -415,12 +440,11 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
         unsigned int pfn_inicial = 0;
         unsigned int pfn_final = 0;
-        unsigned int vpn_inicial = 0;
-        unsigned int vpn_final = 0;
+        unsigned int dirvir_inicial = 0;
+        unsigned int dirvir_final = 0;
         // maximo de 32 páginas de 8 mb cu
         // revisar max
         // unsigned int max = 255999999; 
-        // 00000000010000000000000000000000
         unsigned int max = 268435455;
         printf("Unsigned %u\n", (unsigned int)(pow(2, 23) - 1));
 
@@ -428,15 +452,15 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
             // Caso 1
 
             // inicia en 0
-            vpn_inicial = 0;
+            dirvir_inicial = 0;
 
             // termina como maximo al prinicipio del primer archivo
-            vpn_final = sorted -> ordered[0][0];
+            dirvir_final = sorted -> ordered[0][0];
             if (sorted -> valid_quantity == 0){
                 printf("entre qui qiiwiidvshkacavd\n");
                 // No hay archivos, el fin es el límite
-                vpn_final = max;
-                printf("final %d\n", vpn_final);
+                dirvir_final = max;
+                printf("final %d\n", dirvir_final);
 
 
             }
@@ -460,10 +484,10 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
                         found = 1;
 
                         // inicia en final de archivo i
-                        vpn_inicial = sorted -> ordered [i][0] + sorted -> ordered [i][1]; 
+                        dirvir_inicial = sorted -> ordered [i][0] + sorted -> ordered [i][1]; 
 
                         // termina como maximo al inicio de archivo i + 1
-                        vpn_final = sorted -> ordered [i + 1][0];
+                        dirvir_final = sorted -> ordered [i + 1][0];
 
                     }
             }
@@ -476,10 +500,10 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
                 if (final_available < max - 1){
 
                     // inicia en ultimo archivo + tamaño
-                    vpn_inicial = sorted -> ordered [sorted -> valid_quantity][0] + sorted -> ordered [sorted -> valid_quantity][1];
+                    dirvir_inicial = sorted -> ordered [sorted -> valid_quantity][0] + sorted -> ordered [sorted -> valid_quantity][1];
 
                     // termina como maximo al final de la memoria
-                    vpn_final = max;
+                    dirvir_final = max;
                 }
                 
                 else{
@@ -492,35 +516,55 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
             }
                 
         }
+
         // calculo pfn inicial
-        unsigned char * buffer_vpn_inicial[4];
+        unsigned char * buffer_dirvir_inicial[4];
         // Calculo de los offset final e inicial
         // (32 - 23 = 9 --> Cantidad de lugares que sobran a las izq en el número)
-        unsigned int initial_offset = (vpn_inicial << 9) >> 9;
-        unsigned int final_offset = (vpn_final << 9) >> 9;
-        to4bi(vpn_inicial, buffer_vpn_inicial);
-        pfn_inicial = transform_dirvir_pfn(buffer_vpn_inicial, buffer_starts, file_desc -> buffer_iterator);
+        unsigned int initial_offset = (dirvir_inicial << 9) >> 9;
+        unsigned int final_offset = (dirvir_final << 9) >> 9;
+        to4bi(dirvir_inicial, buffer_dirvir_inicial);
+        pfn_inicial = transform_dirvir_pfn(buffer_dirvir_inicial, buffer_starts, file_desc -> buffer_iterator);
+        unsigned int current_pfn = transform_dirvir_pfn(buffer_dirvir_inicial, buffer_starts, file_desc -> buffer_iterator);
+        unsigned int current_dirvir = dirvir_inicial;
+        int bytes_written = 0;
+        while(bytes_written < n_bytes && current_dirvir < dirvir_final){
+            unsigned int offset = (current_dirvir << 9) >> 9;
+            // Llegamos al limite de una página
+            if (current_dirvir % 8388608 == 0) {
+                // pedir, asociar y actualizar pfn
+            }
+            // Escribir en pfn + offset el buffer[bytes_written]
+            fseek(ptr, 5012 + (8388608 * current_pfn) + offset, SEEK_SET);
+            fwrite(&buffer[bytes_written], 1, 1, ptr);
+            bytes_written += 1;
+            current_dirvir += 1;
+        }
+        fclose(ptr);
+
+        // Actualizar tamaño archivo 
 
         // calculo pfn final
-        unsigned char * buffer_vpn_final[4];
-        printf("entre qui ---------------------- %d\n", vpn_final);
+        unsigned char * buffer_dirvir_final[4];
+        printf("entre qui ---------------------- %d\n", dirvir_final);
 
-        to4bi(vpn_final, buffer_vpn_final);
-        pfn_final = transform_dirvir_pfn(buffer_vpn_final, buffer_starts, file_desc -> buffer_iterator);
+        to4bi(dirvir_final, buffer_dirvir_final);
+        pfn_final = transform_dirvir_pfn(buffer_dirvir_final, buffer_starts, file_desc -> buffer_iterator);
 
         printf("Offset inicial calculado: %ld / final: %ld\n", initial_offset, final_offset);
 
-        printf("VPN inicial calculado: %d/ final: %d\n", vpn_inicial, vpn_final);   
-
-
-        // Calculo de direcciones de memoria
-        // Se corren los pfn 25 lugares a la izquierda
-        // 32(largo numero) - 7(largo pfn) = 25
-        // Y se suma el offset respectivo
-        pfn_inicial = (pfn_inicial << 25) + initial_offset;  
-        pfn_final = (pfn_final << 25) + final_offset;  
+        printf("VPN inicial calculado: %d/ final: %d\n", dirvir_inicial, dirvir_final);   
 
         printf("PFN inicial calculado: %u/ final: %u\n", pfn_inicial, pfn_final);
+
+        // Calculo de direcciones de memoria
+        // Se corren los pfn 23 lugares a la izquierda
+        unsigned int dirfis_inicial = (pfn_inicial << 23) + initial_offset;  
+        unsigned int dirfis_final = (pfn_final << 23) + final_offset;  
+
+        printf("Dirección fisica inicial calculada: %u/ final: %u\n", dirfis_inicial, dirfis_final);
+
+        
         
 
         // - Encontrar proximo espacio disponible -> itero sobre la memoria virtual 
@@ -542,6 +586,41 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
 
  }
+
+int ask_for_frame(CrmsFile* file_desc) {
+    // Retorna -1 si hay error o el numero del frame asignado
+    unsigned char buffer_starts[5012];
+    FILE *ptr;
+
+    ptr = fopen(ruta_local,"rb+");  // r for read, b for binary
+    fread(buffer_starts, sizeof(buffer_starts), 1, ptr);
+    int pfn = -1;
+    for (int i = 0; i < 16; i++) {
+        unsigned char current_byte = buffer_starts[4096 + i];
+        int mask = 1;
+        char byte[] = "00000000";
+        for (int j = 0; j < 8; j++){
+            int is_1 = (current_byte & (mask << i)) != 0;
+            if (is_1) {
+                byte[j] = '1';
+            }
+            if ((current_byte & (mask << i)) == 0 && pfn == - 1) {
+                pfn = i * 8 + j;
+                byte[j] = '1';
+            }
+        }
+        char to_write = strtol(byte, 0, 2);
+        printf("%s = %c = %d = 0x%.2X\n", byte, to_write, to_write, to_write);
+        if (pfn != -1) {
+            printf("PFN: %d\n", pfn);
+            fseek(ptr, 4096 + i, SEEK_SET);
+            fwrite(&to_write, sizeof(char), 1, ptr);
+            break;
+        }
+    }
+    fclose(ptr);
+    return pfn;
+}
 
 int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes){
 

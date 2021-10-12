@@ -24,8 +24,9 @@ int main(int argc, char **argv)
   //cr_mount(ruta);
 
   cr_mount(filename);
-  CrmsFile* data = cr_open(0, "secreeet.txt", 'w');
-  cr_write_file(data, NULL, 10);
+  CrmsFile* data = cr_open(9, "secreeet.txt", 'w');
+  // cr_write_file(data, NULL, 10);
+  ask_for_frame(data);
 
   // cr_ls_processes();
   // int resp = cr_exists(0, "secret.txt");
