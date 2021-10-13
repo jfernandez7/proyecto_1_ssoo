@@ -24,14 +24,23 @@ int main(int argc, char **argv)
   //cr_mount(ruta);
 
   cr_mount(filename);
-  CrmsFile* data = cr_open(9, "secreeet.txt", 'w');
-  // cr_write_file(data, NULL, 10);
-  ask_for_frame();
+  CrmsFile* data = cr_open(0, "escribiendo9.MOV", 'w');
+  unsigned char buffer_test[4194304];
+  FILE *ptr;
+  ptr = fopen("amarrando_lejos.MOV","rb");  
+  fread(buffer_test, sizeof(buffer_test), 1, ptr);
+  if (data){
+    cr_write_file(data, buffer_test, 4194304);
+    read_conversion_table(200, data);
+  }
+
+  fclose(ptr);
+  //ask_for_frame();
 
   // cr_ls_processes();
   // int resp = cr_exists(0, "secret.txt");
   // printf("respuesta cr_exists %i\n", resp);
-  // cr_ls_files(0);
+  cr_ls_files(200);
   // cr_start_process(120, "holaa");
   // cr_finish_process(0);
   //printf("%s\n", filename);
