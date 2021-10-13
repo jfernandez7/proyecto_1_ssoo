@@ -7,15 +7,11 @@
 
 // Define the struct
 typedef struct crmsfile {
+  int archive_iterator;
   int buffer_iterator;
   int process_id;
   char *file_name;
   char mode;
-  int virtual_address;
-  int pointer;
-  unsigned int size;
-
-
 } CrmsFile; //struct de archivos abiertos
 
 typedef struct options {
@@ -28,6 +24,7 @@ typedef struct options {
 
 //Funciones generales
 int virmem_to_vpn(int vir_mem);
+int ask_for_frame();
 
 
 Options* sort_valid_process_files(int array[10][2], unsigned char * virmems [10]);

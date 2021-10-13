@@ -12,29 +12,6 @@
 char *ruta_local;
 //Funciones generales
 
-char* itoa(int value, char* result, int base) {
-    // check that the base if valid
-    if (base < 2 || base > 36) { *result = '\0'; return result; }
-
-    char* ptr = result, *ptr1 = result, tmp_char;
-    int tmp_value;
-
-    do {
-        tmp_value = value;
-        value /= base;
-        *ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
-    } while ( value );
-
-    // Apply negative sign
-    if (tmp_value < 0) *ptr++ = '-';
-    *ptr-- = '\0';
-    while(ptr1 < ptr) {
-        tmp_char = *ptr;
-        *ptr--= *ptr1;
-        *ptr1++ = tmp_char;
-    }
-    return result;
-}
 
 void cr_mount(char* memory_path){
     printf("cr_mount \n");
@@ -279,18 +256,15 @@ void delete_framebit(int pfn){
 }
 
 int transform_dirvir_pfn(unsigned char* dir_virtual, unsigned char *buffer, int i){
-    printf("hola dirvir : %s\n", dir_virtual);
+
     unsigned char byte_1 = dir_virtual[0];// Read from file
-    printf("hola dirvin2\n");
 
     unsigned char byte_2 = dir_virtual[1];// Read from file
-    printf("hola dirvin3\n");
 
     unsigned char mask = 1; // Bit mask
     unsigned char bits_1[8];
     unsigned char bits_2[8];
 
-    //printf("%i\n", byte);
     // Extract the bits
     for (int i = 0; i < 8; i++) {
         // Mask each bit in the byte and store it
@@ -343,31 +317,127 @@ int transform_dirvir_pfn(unsigned char* dir_virtual, unsigned char *buffer, int 
 CrmsFile* cr_open(int process_id, char* file_name, char mode){
     int exists = cr_exists(process_id, file_name);
     if ((mode == 'r' && exists == 1) || (mode == 'w' && exists == 0)){
+        // solo posibilidad de leer archivos existentes o escribir nuevos sorryyyyyyyy 
+
         // checks that file exists & returns CrmsFile*
         CrmsFile* crms_file = calloc(1, sizeof(CrmsFile));
         crms_file -> file_name = file_name;
         crms_file -> process_id = process_id;
         crms_file -> mode = mode;
-        crms_file -> pointer = 0;
-        if (exists == 1){
-            printf("Existía el archivo que se solicitó leer\n");
-            // crms_file -> size = ;
-            // crms_file -> virtual_address = ;
+
+        unsigned char buffer_starts[4096];
+        FILE *ptr;
+
+        ptr = fopen(ruta_local,"rb+");  // r for read, b for binary
+        fread(buffer_starts, sizeof(buffer_starts), 1, ptr); // read 10 bytes to our buffer
+
+
+        // capacidad de procesos
+        for (int i = 0; i < 16; i++){
+
+            int id = buffer_starts[(i * 256) + 1];
+            int validez = buffer_starts[(i * 256)];
+
+            // si coinicde con proceso buscado
+            if (id == process_id && validez == 1){
+                crms_file -> buffer_iterator = i;
+                // reviso sus archivos
+                if (exists == 1){
+                    printf("Existía el archivo que se solicitó leer\n");
+                    char archivo[12];
+                    for (int j = 0; j < 10; j++){
+                    // para cada uno, guardo su nombre y veo si es el actual, si es guardo en archive_iterator el j
+                        for (int k = 0; k < 12; k++){
+                            // 256 --> proceso / 21 -> archivo / 14 info proceso / k + 1 para saltarse el de validez
+                            archivo[k] = (char)buffer_starts[256*i + 15 + 21*j + k];
+                        }
+                        if (file_name == archivo){
+                            crms_file -> archive_iterator = j;
+                            printf("Nombre del archivo encontrado! archive_iterator = %d\n", j); 
+                        }     
+                    
+                    }  
+                }
+                else{
+                    printf("No existía el archivo que se solicitó escribir, por lo que se creó \n");
+                    // crear nombre con size 0 y validez 1
+                    int indice = -1;
+                    char archivo[1];
+                    int validez = 1;
+                    int initial_size = 0;
+                    char size_buffer[4];
+                    to4bi(initial_size, size_buffer);
+
+                    for (int j = 0; j < 10; j++){
+                        archivo[0] = (char)buffer_starts[256*i + 14 + 21*j];
+                        if (archivo[0] == 0){
+                            // current archive is invalid
+                            indice = j;
+                            printf("Indice para nuevo archivo encontrado! archive_iterator = %d\n", j); 
+                            break;
+                        }  
+                    }
+                    if (indice != -1){
+                        fseek(ptr, 256*i + 14 + 21*indice , SEEK_SET);
+                        fwrite(&validez, 1, 1, ptr);
+                        fseek(ptr, 256*i + 15 + 21*indice , SEEK_SET);
+                        fwrite(&file_name, 1, 12, ptr);
+                        fseek(ptr, 256*i + 27 + 21*indice , SEEK_SET);
+                        fwrite(&size_buffer, 1, 4, ptr);
+                        printf("Creados tambien su nombre, validez y tamaño en la tabla :)\n"); 
+
+
+                    }
+                    else{
+                        printf("No cabe el archivo para este proceso :(\n");
+                    }
+
+
+
+
+                }       
+            }  
         }
-        else {
-            printf("No existía el archivo que se solicitó escribir\n");
-            // crms_file -> size = 0;
-        }
+        fclose(ptr);
         return crms_file;
     }
+    
     printf("Error en cr_open\n");
-
     // PENDIENTES
     // Qué devolver en otro caso?
-    // Qué poner en otros campos (en ifs)
-    // Hay que crear el archivo en la memoria?
 
 } 
+
+int read_conversion_table (int dirvir, CrmsFile* file_desc){
+
+    unsigned char buffer[1];
+    FILE *ptr;
+
+    // escribo (14 --> extras, 10*21 --> 21 entradas archivos, 32 donde debo elegir que página)
+    int vpn = (int) dirvir / 8388608;
+    int offset_in_process = 14 + 210 + vpn ;
+    int choose_process = 256 * file_desc -> buffer_iterator;
+    int total_direction = choose_process + offset_in_process;
+
+    ptr = fopen(ruta_local,"rb");  // r for read, b for binary
+    
+    fseek(ptr, total_direction, SEEK_SET);
+    fread(buffer, sizeof(buffer), 1, ptr); 
+    
+    // leo 1 byte : 1 bit validez| 7 bits pfn
+    int pfn = -1;
+    
+    
+    // if es válido
+    int valid = (buffer[0] >> 7) & 1;
+    if (valid == 1){
+        pfn = buffer[0] - 128;
+    }
+    
+    return pfn;
+    
+
+}
 
 
 
@@ -457,10 +527,10 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
             // termina como maximo al prinicipio del primer archivo
             dirvir_final = sorted -> ordered[0][0];
             if (sorted -> valid_quantity == 0){
-                printf("entre qui qiiwiidvshkacavd\n");
+                // printf("entre qui qiiwiidvshkacavd\n");
                 // No hay archivos, el fin es el límite
                 dirvir_final = max;
-                printf("final %d\n", dirvir_final);
+                // printf("final %d\n", dirvir_final);
 
 
             }
@@ -470,7 +540,6 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
             // Caso 2: recorremos 
             
             int found = 0;
-            
             
             for (int i = 0; i < sorted -> valid_quantity - 1; i += 1){
                     int start_1 = sorted -> ordered [i][0];
@@ -500,7 +569,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
                 if (final_available < max - 1){
 
                     // inicia en ultimo archivo + tamaño
-                    dirvir_inicial = sorted -> ordered [sorted -> valid_quantity][0] + sorted -> ordered [sorted -> valid_quantity][1];
+                    dirvir_inicial = final_available;
 
                     // termina como maximo al final de la memoria
                     dirvir_final = max;
@@ -518,38 +587,127 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         }
 
         // calculo pfn inicial
+
         unsigned char * buffer_dirvir_inicial[4];
+
         // Calculo de los offset final e inicial
+
         // (32 - 23 = 9 --> Cantidad de lugares que sobran a las izq en el número)
         unsigned int initial_offset = (dirvir_inicial << 9) >> 9;
         unsigned int final_offset = (dirvir_final << 9) >> 9;
+        
         to4bi(dirvir_inicial, buffer_dirvir_inicial);
-        pfn_inicial = transform_dirvir_pfn(buffer_dirvir_inicial, buffer_starts, file_desc -> buffer_iterator);
-        unsigned int current_pfn = transform_dirvir_pfn(buffer_dirvir_inicial, buffer_starts, file_desc -> buffer_iterator);
+
+        pfn_inicial = read_conversion_table(dirvir_inicial, file_desc);
+
+        if (pfn_inicial == -1){
+
+            // pido a bitmap y vuelvo a buscar
+
+            pfn_inicial = ask_for_frame();
+
+            if (pfn_inicial != -1){
+                // Bitmap pedido y pfn actualizado
+                // Ahora asociar frame a pfn
+                // byte de la tabla validez|pfn
+                
+                // declaro como valido = 128 = 0x10000000 
+                unsigned int byte = 128;
+
+                // sumo los bits de pfn
+                byte += pfn_inicial;
+
+                // escribo (14 --> extras, 10*21 --> 21 entradas archivos, página 0)
+                int offset_in_process = 14 + 210 + 0 ;
+                int choose_process = 256 * file_desc -> buffer_iterator;
+                int total_direction = choose_process + offset_in_process;
+
+                fseek(ptr, total_direction, SEEK_SET);
+                fwrite(&byte, 1, 1, ptr);
+
+            }
+            else{
+                // No dieron frame, paro de escribir pues se acabo la memoria
+                printf("We are sorry, there is no space left :'(\n");
+            }
+
+        }
+        
+        unsigned int current_pfn = pfn_inicial;
         unsigned int current_dirvir = dirvir_inicial;
+
         int bytes_written = 0;
+
         while(bytes_written < n_bytes && current_dirvir < dirvir_final){
+
             unsigned int offset = (current_dirvir << 9) >> 9;
+
             // Llegamos al limite de una página
             if (current_dirvir % 8388608 == 0) {
-                // pedir, asociar y actualizar pfn
+                current_pfn = ask_for_frame();
+                if (current_pfn != -1){
+                    // Bitmap pedido y pfn actualizado
+                    // Ahora asociar frame a pfn
+                    // byte de la tabla validez|pfn
+                    // 128 = 0x10000000 = valido
+                    unsigned int byte = 128;
+
+                    // sumo los bits de pfn
+                    byte += current_pfn;
+
+                    // escribo (14 --> extras, 10*21 --> 21 entradas archivos, 32 donde debo elegir que página)
+                    int offset_in_process = 14 + 210 + current_dirvir / 8388608 ;
+                    int choose_process = 256 * file_desc -> buffer_iterator;
+                    int total_direction = choose_process + offset_in_process;
+
+                    fseek(ptr, total_direction, SEEK_SET);
+                    fwrite(&byte, 1, 1, ptr);
+
+                }
+                else{
+                    // No dieron frame, paro de escribir pues se acabo la memoria
+                    printf("We are sorry, there is no space left :'(\n");
+                    break;
+                }
+
+
             }
+
             // Escribir en pfn + offset el buffer[bytes_written]
+            
             fseek(ptr, 5012 + (8388608 * current_pfn) + offset, SEEK_SET);
             fwrite(&buffer[bytes_written], 1, 1, ptr);
             bytes_written += 1;
             current_dirvir += 1;
         }
-        fclose(ptr);
-
+        
         // Actualizar tamaño archivo 
 
+        // escribo (14 --> extras, indice*21 --> 21 cada archivo antes + 13 de validez y nombre)
+        // ahi parten 4 que corresponden al tamaño de bytes
+
+        // pasar bytes written a endianness correcto
+        char final_size_buffer[4];
+        to4bi(bytes_written, final_size_buffer);
+
+        int offset_in_process = 14 + file_desc -> archive_iterator * 21 + 13 ;
+        int choose_process = 256 * file_desc -> buffer_iterator;
+        int total_direction = choose_process + offset_in_process;
+
+        fseek(ptr, total_direction, SEEK_SET);
+        fwrite(&final_size_buffer, 4, 1, ptr);
+
+        fclose(ptr);
+        return bytes_written;
+
+       
+//----------------- aca pa abajo es caca --------------------------
         // calculo pfn final
         unsigned char * buffer_dirvir_final[4];
         printf("entre qui ---------------------- %d\n", dirvir_final);
 
         to4bi(dirvir_final, buffer_dirvir_final);
-        pfn_final = transform_dirvir_pfn(buffer_dirvir_final, buffer_starts, file_desc -> buffer_iterator);
+        // pfn_final = transform_dirvir_pfn(buffer_dirvir_final, buffer_starts, file_desc -> buffer_iterator);
 
         printf("Offset inicial calculado: %ld / final: %ld\n", initial_offset, final_offset);
 
@@ -564,7 +722,8 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
         printf("Dirección fisica inicial calculada: %u/ final: %u\n", dirfis_inicial, dirfis_final);
 
-        
+        // pfn_inicial = transform_dirvir_pfn(buffer_dirvir_inicial, buffer_starts, file_desc -> buffer_iterator);
+
         
 
         // - Encontrar proximo espacio disponible -> itero sobre la memoria virtual 
@@ -575,7 +734,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         // - almacenar memoria usada (tamaño) en la tabla y en el struct
         // - devolver cantidad bytes escritos
         // *SUPUESTO* suma de espacios válidos para procesos es menor o igual a memoria real (no permite sobreescribir)
-
+// ----------------- aca pa arriba es caca --------------------------
     }
     else {
 
@@ -587,7 +746,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
  }
 
-int ask_for_frame(CrmsFile* file_desc) {
+int ask_for_frame() {
     // Retorna -1 si hay error o el numero del frame asignado
     unsigned char buffer_starts[5012];
     FILE *ptr;
@@ -598,23 +757,21 @@ int ask_for_frame(CrmsFile* file_desc) {
     for (int i = 0; i < 16; i++) {
         unsigned char current_byte = buffer_starts[4096 + i];
         int mask = 1;
-        char byte[] = "00000000";
-        for (int j = 0; j < 8; j++){
-            int is_1 = (current_byte & (mask << i)) != 0;
-            if (is_1) {
-                byte[j] = '1';
-            }
-            if ((current_byte & (mask << i)) == 0 && pfn == - 1) {
-                pfn = i * 8 + j;
-                byte[j] = '1';
+
+        for (int j = 7; j >= 0; j--){
+            int is_1 = ((current_byte >> j) & mask );
+
+            if ( !is_1 ) {
+                pfn = i * 8 + (7 - j);
+                current_byte = current_byte | mask << j;
+                break;
             }
         }
-        char to_write = strtol(byte, 0, 2);
-        printf("%s = %c = %d = 0x%.2X\n", byte, to_write, to_write, to_write);
+
         if (pfn != -1) {
             printf("PFN: %d\n", pfn);
             fseek(ptr, 4096 + i, SEEK_SET);
-            fwrite(&to_write, sizeof(char), 1, ptr);
+            fwrite(&current_byte, sizeof(char), 1, ptr);
             break;
         }
     }
