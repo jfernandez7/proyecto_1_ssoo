@@ -658,17 +658,17 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         unsigned int current_dirvir = dirvir_inicial;
 
         int bytes_written = 0;
-
+        unsigned int offset;
         while(bytes_written < n_bytes && current_dirvir < dirvir_final){
 
-            unsigned int offset = current_dirvir % 8388608;
+            offset = current_dirvir % 8388608;
             // unsigned int offset = (current_dirvir << 9) >> 9;
             // printf("Offset actual: %d\n", offset);
             // printf("division: %d\n", current_dirvir % 8388608);
 
 
             // Llegamos al limite de una página
-            if (current_dirvir % 8388608 == 0 && offset != 0) {
+            if (current_dirvir % 8388608 == 0 && current_dirvir != 0) {
 
                 printf("llegue a limite - pido nuevo frame\n");
 
@@ -801,12 +801,12 @@ int ask_for_frame() {
         }
 
         if (pfn != -1) {
-            printf("PFN: %d\n", pfn);
             fseek(ptr, 4096 + i, SEEK_SET);
             fwrite(&current_byte, sizeof(char), 1, ptr);
             break;
         }
     }
+    printf("PFN: %d\n", pfn);
     fclose(ptr);
     return pfn;
 }

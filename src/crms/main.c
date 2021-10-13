@@ -25,15 +25,15 @@ int main(int argc, char **argv)
 
   cr_mount(filename);
   CrmsFile* data = cr_open(0, "escribiendo9.MOV", 'w');
-  unsigned char buffer_test[4194304];
+  unsigned char * buffer_test = calloc(100000000, sizeof(unsigned char));
   FILE *ptr;
-  ptr = fopen("amarrando_lejos.MOV","rb");  
+  ptr = fopen("Zoom.pkg","rb");  
   fread(buffer_test, sizeof(buffer_test), 1, ptr);
   if (data){
-    cr_write_file(data, buffer_test, 4194304);
+    cr_write_file(data, buffer_test, 100000000);
     read_conversion_table(200, data);
   }
-
+  free(buffer_test);
   fclose(ptr);
   //ask_for_frame();
 
