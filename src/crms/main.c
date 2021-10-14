@@ -24,15 +24,19 @@ int main(int argc, char **argv)
   //cr_mount(ruta);
 
   cr_mount(filename);
-  CrmsFile* data = cr_open(9, "secreeet.txt", 'w');
+  printf("****************\n");
+  // CrmsFile* data = cr_open(9, "secreeet.txt", 'w');
   // cr_write_file(data, NULL, 10);
-  ask_for_frame();
+  //ask_for_frame();
 
-  // cr_ls_processes();
-  // int resp = cr_exists(0, "secret.txt");
-  // printf("respuesta cr_exists %i\n", resp);
-  // cr_ls_files(0);
-  // cr_start_process(120, "holaa");
+  //cr_ls_processes();
+  //int resp = cr_exists(0, "secret.txt");
+  //printf("respuesta cr_exists %i\n", resp);
+  //cr_ls_files(0);
+  //print_bytes(4096, 256);
+  //cr_start_process(120, "holaa");
+  //cr_finish_process(0);
+  //print_bytes(4096, 256);
   // cr_finish_process(0);
   //printf("%s\n", filename);
 
