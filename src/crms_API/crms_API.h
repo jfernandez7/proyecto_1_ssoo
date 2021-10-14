@@ -17,7 +17,7 @@ typedef struct crmsfile {
 
 typedef struct options {
   int valid_quantity;
-  int ordered[10][2];
+  int ordered[10][3];
   unsigned char * virmems[10];
 } Options;
 
@@ -28,7 +28,7 @@ int virmem_to_vpn(int vir_mem);
 int ask_for_frame();
 
 
-Options* sort_valid_process_files(int array[10][2], unsigned char * virmems [10]);
+Options* sort_valid_process_files(int array[10][3], unsigned char * virmems [10]);
 
 void cr_mount(char* memory_path);
 
