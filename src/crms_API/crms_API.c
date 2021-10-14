@@ -326,6 +326,7 @@ CrmsFile* cr_open(int process_id, char* file_name, char mode){
         crms_file -> file_name = file_name;
         crms_file -> process_id = process_id;
         crms_file -> mode = mode;
+        crms_file -> actual_read = 0;
 
         unsigned char buffer_starts[4096];
         FILE *ptr;
@@ -529,7 +530,6 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         // revisar max
         // unsigned int max = 255999999; 
         unsigned int max = 268435455;
-        printf("Unsigned %u\n", (unsigned int)(pow(2, 23) - 1));
 
         if(sorted -> valid_quantity == 0 || sorted -> ordered[0][0] != 0){
             // Caso 1
@@ -623,7 +623,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
             printf("Pedi frame para partir pq im new\n");
             // pido a bitmap y vuelvo a buscar
 
-            pfn_inicial = ask_for_frame();
+            pfn_inicial = ask_for_frame(file_desc, dirvir_inicial / 8388608);
 
             if (pfn_inicial != -1){
                 printf("PFN nuevo inicial: %d\n", pfn_inicial);
@@ -672,7 +672,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
                 printf("llegue a limite - pido nuevo frame\n");
 
-                current_pfn = ask_for_frame();
+                current_pfn = ask_for_frame(file_desc, current_dirvir / 8388608);
 
                 if (current_pfn != -1){
                     printf("PFN nuevo : %d\n", current_pfn);
@@ -731,44 +731,11 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         fseek(ptr, total_direction, SEEK_SET);
         fwrite(&final_size_buffer, 4, 1, ptr);
 
+        fseek(ptr, total_direction + 4, SEEK_SET);
+        fwrite(&buffer_dirvir_inicial, 4, 1, ptr);
+
         fclose(ptr);
         return bytes_written;
-
-       
-//----------------- aca pa abajo es caca --------------------------
-        // calculo pfn final
-        unsigned char * buffer_dirvir_final[4];
-        printf("entre qui ---------------------- %d\n", dirvir_final);
-
-        to4bi(dirvir_final, buffer_dirvir_final);
-        // pfn_final = transform_dirvir_pfn(buffer_dirvir_final, buffer_starts, file_desc -> buffer_iterator);
-
-        printf("Offset inicial calculado: %ld / final: %ld\n", initial_offset, final_offset);
-
-        printf("VPN inicial calculado: %d/ final: %d\n", dirvir_inicial, dirvir_final);   
-
-        printf("PFN inicial calculado: %u/ final: %u\n", pfn_inicial, pfn_final);
-
-        // Calculo de direcciones de memoria
-        // Se corren los pfn 23 lugares a la izquierda
-        unsigned int dirfis_inicial = (pfn_inicial << 23) + initial_offset;  
-        unsigned int dirfis_final = (pfn_final << 23) + final_offset;  
-
-        printf("Dirección fisica inicial calculada: %u/ final: %u\n", dirfis_inicial, dirfis_final);
-
-        // pfn_inicial = transform_dirvir_pfn(buffer_dirvir_inicial, buffer_starts, file_desc -> buffer_iterator);
-
-        
-
-        // - Encontrar proximo espacio disponible -> itero sobre la memoria virtual 
-        // - Si tiene 10 archivos return
-        // - Partimos chequeando en memoria más "arriba"
-        // - Guardar frame o pagina en tabla 
-        // - escribir los bytes
-        // - almacenar memoria usada (tamaño) en la tabla y en el struct
-        // - devolver cantidad bytes escritos
-        // *SUPUESTO* suma de espacios válidos para procesos es menor o igual a memoria real (no permite sobreescribir)
-// ----------------- aca pa arriba es caca --------------------------
     }
     else {
         printf("El archivo a escribir no se abrió en el modo correcto\n");
@@ -778,7 +745,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
  }
 
-int ask_for_frame() {
+int ask_for_frame(CrmsFile* file_desc, int vpn) {
     // Retorna -1 si hay error o el numero del frame asignado
     unsigned char buffer_starts[5012];
     FILE *ptr;
@@ -812,8 +779,44 @@ int ask_for_frame() {
 }
 
 int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes){
+    printf("-------Reading--------\n");
+    int process_memory_idx = file_desc -> buffer_iterator;
+    int archive_process_idx = file_desc -> archive_iterator;
 
+    unsigned char memory_buffer[4096];
+    FILE *ptr;
 
+    ptr = fopen(ruta_local,"rb");
+    fread(memory_buffer, sizeof(memory_buffer), 1, ptr);
+
+    unsigned char virtual_direction[4];
+    unsigned char size[4];
+    for(int i = 0; i < 4; i++){
+        virtual_direction[i] = memory_buffer[256*process_memory_idx + 14 + 21 * archive_process_idx + 17 + i];
+        size[i] = memory_buffer[256*process_memory_idx + 14 + 21 * archive_process_idx + 13 + i];
+    }
+
+    unsigned int virtual_direction_number = from4bi(virtual_direction);
+    virtual_direction_number += file_desc -> actual_read;
+
+    unsigned int size_number = from4bi(size);
+
+    unsigned int bytes_read = 0;
+    int current_pfn = read_conversion_table(virtual_direction_number, file_desc);
+    while (bytes_read < n_bytes && file_desc->actual_read + bytes_read < size_number) {
+        if (virtual_direction_number % 8388608 == 0 && bytes_read > 0) {
+            current_pfn = read_conversion_table(virtual_direction_number + bytes_read, file_desc);
+        }
+        int offset = ((virtual_direction_number + bytes_read) << 9) >> 9;
+        printf("Offset: %d\n", offset);
+        unsigned int fisical_direction = (current_pfn << 23) + offset;
+        printf("Fisical Direction: %d\n", fisical_direction);
+        fseek(ptr, 5012 + fisical_direction, SEEK_SET);
+        fread(&buffer[bytes_read], 1, 1, ptr);
+        bytes_read += 1;
+    }
+    file_desc -> actual_read += bytes_read;
+    fclose(ptr);
 }
 
 void cr_delete_file(CrmsFile* file_desc){

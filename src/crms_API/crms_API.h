@@ -9,6 +9,7 @@
 typedef struct crmsfile {
   int archive_iterator;
   int buffer_iterator;
+  unsigned int actual_read;
   int process_id;
   char *file_name;
   char mode;

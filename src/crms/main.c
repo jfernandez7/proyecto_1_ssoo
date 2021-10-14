@@ -25,22 +25,25 @@ int main(int argc, char **argv)
 
   cr_mount(filename);
   CrmsFile* data = cr_open(0, "escribiendo9.MOV", 'w');
-  unsigned char * buffer_test = calloc(100000000, sizeof(unsigned char));
+  unsigned char buffer_test[13];
   FILE *ptr;
-  ptr = fopen("Zoom.pkg","rb");  
+  ptr = fopen("test.txt","rb");  
   fread(buffer_test, sizeof(buffer_test), 1, ptr);
   if (data){
-    cr_write_file(data, buffer_test, 100000000);
+    cr_write_file(data, buffer_test, 13);
     read_conversion_table(200, data);
   }
-  free(buffer_test);
+  char* string = calloc(13, sizeof(char));
+  cr_read(data, string, 13);
+  printf("String: %s\n", string);
+  free(string);
   fclose(ptr);
   //ask_for_frame();
 
   // cr_ls_processes();
   // int resp = cr_exists(0, "secret.txt");
   // printf("respuesta cr_exists %i\n", resp);
-  cr_ls_files(200);
+  cr_ls_files(0);
   // cr_start_process(120, "holaa");
   // cr_finish_process(0);
   //printf("%s\n", filename);
