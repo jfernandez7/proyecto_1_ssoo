@@ -88,7 +88,7 @@ void cr_ls_files(int process_id){
                     // 256 --> proceso / 21 -> archivo / 14 info proceso / k + 1 para saltarse el de validez
                     archivo2[k] = (char)buffer[256*i + 15 + 21*j + k];
                 }
-                if (0 != strlen(archivo2)){
+                if (0 != strlen(archivo2) && validez[0] == 1){
                     printf("Nombre del archivo: %s || validez: %d\n", archivo2, validez[0]); 
                 }     
             }       
@@ -426,7 +426,7 @@ void print_bytes(int start, int n_bytes){
         //printf("%i:%c-", j, (char)buffer[start + j]);
     }
     printf("\n");
-    close(ptr);
+    fclose(ptr);
 }
 
 int read_conversion_table (int dirvir, CrmsFile* file_desc){
@@ -748,6 +748,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
     }
     else {
         printf("El archivo a escribir no se abrió en el modo correcto\n");
+        return -1;
     }
     
 
@@ -785,6 +786,26 @@ int ask_for_frame(CrmsFile* file_desc, int vpn) {
     printf("PFN: %d\n", pfn);
     fclose(ptr);
     return pfn;
+}
+
+void free_frame(int pfn) {
+    // Retorna -1 si hay error o el numero del frame asignado
+    unsigned char buffer_starts[5012];
+    FILE *ptr;
+
+    ptr = fopen(ruta_local,"rb+");  // r for read, b for binary
+    fread(buffer_starts, sizeof(buffer_starts), 1, ptr);
+
+    int byte_index = (int) pfn/8;
+    int byte_offset = (int) pfn % 8;
+    unsigned char current_byte = buffer_starts[4096 + byte_index];
+    int mask = 1;
+    mask = mask << byte_offset;
+    current_byte = current_byte & (~ mask);
+
+    fseek(ptr, 4096 + byte_index, SEEK_SET);
+    fwrite(&current_byte, sizeof(char), 1, ptr);
+    fclose(ptr);
 }
 
 int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes){
@@ -829,27 +850,157 @@ int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes){
 }
 
 void cr_delete_file(CrmsFile* file_desc){
-    // Delete file info from process table
-    // if frame is free, delete frame in process table & free bitmap
+    // 1- Obtengo datos de archivos de proceso, ordeno en paginas
+    int starts[10][2];
+    unsigned char * virmems [10];
+    int counter = 0;
+    unsigned char buffer_starts[4096];
+    FILE *ptr;
 
-    printf("PFN nuevo : %d\n", current_pfn);
-    // Bitmap pedido y pfn actualizado
-    // Ahora asociar frame a pfn
-    // byte de la tabla validez|pfn
-    // 128 = 0x10000000 = valido
-    unsigned int byte = 128;
+    ptr = fopen(ruta_local,"rb+");  // r for read, b for binary
+    fread(buffer_starts, sizeof(buffer_starts), 1, ptr); // read 10 bytes to our buffer
 
-    // sumo los bits de pfn
-    byte += current_pfn;
+    char direction[4];
+    char size[4];
+    unsigned int file_size;
+    unsigned int file_dirvir;
 
-    // escribo (14 --> extras, 10*21 --> 21 entradas archivos, 32 donde debo elegir que página)
-    int offset_in_process = 14 + 210 + current_dirvir / 8388608 ;
+    // capacidad de procesos
+    for (int i = 0; i < 16; i++){
+        int id = buffer_starts[(i * 256) + 1];
+        int validez = buffer_starts[(i * 256)];
+        // si coinicde con proceso buscado
+        if (id == file_desc -> process_id && validez == 1){
+            // reviso sus archivos
+            for (int j = 0; j < 10; j++){
+                // para cada uno, guardo su direccion y su tamaño
+                for (int k = 0; k < 4; k++){
+                    // 256 --> proceso / 21 -> archivo / 14 info proceso / k + 17 para llegar a la direccion
+                    direction[k] = buffer_starts[256*i + 14 + 21*j + k + 17];
+                    size[k] = buffer_starts[256*i + 14 + 21*j + k + 13];
+                    // printf(" direction %c / size %c\n", buffer_starts[256*i + 14 + 21*j + k + 17], buffer_starts[256*i + 14 + 21*j + k + 13]);
+                }
+                // metemos al arreglo dir + size de archivo
+                if (j == file_desc -> archive_iterator){
+                    file_size = from4bi(size);
+                    file_dirvir = from4bi(direction);
+                }    
+                starts[counter][0] = from4bi(direction);
+                starts[counter][1] = from4bi(size);
+                virmems[counter] = direction;
+                counter ++;
+            }       
+        }  
+    }
+    // 2- Con direcciones ordenadas, veo cual es el indice del archivo dentro del array
+
+    for (int i = 0; i < 10; i++){
+        printf("direccion: %d / tamaño: %d\n", starts[i][0], starts[i][1]);
+    }
+    int ordered_index;
+    Options * sorted = sort_valid_process_files(starts, virmems);
+
+    for (int i = 0; i < sorted -> valid_quantity ; i++){
+        if (sorted -> ordered[i][0] == file_dirvir && sorted -> ordered[i][1] == file_size){
+            ordered_index = i;
+        }
+        printf("VALID direccion: %d / tamaño: %d\n", sorted -> ordered[i][0], sorted -> ordered[i][1]);
+    }
+    // 3- Calculo los vpn de las páginas que ocupa
+
+    int first_vpn = (int) file_dirvir / 8388608;
+    int final_vpn = (int) (file_dirvir + file_size) / 8388608;
+    int page_quantity = final_vpn - first_vpn + 1;
+
+    // 4- Si ocupa más de dos páginas, las de entremedio son solo de el (supuesto de escritura contigua)
+    if (page_quantity > 2){
+        // aqui vacío todos los de entremedio pues los uso solo yo como archivo
+        int iterator_dirvir = file_dirvir;
+        int iterator_vpn = first_vpn;
+        for (int i = first_vpn + 1; i < final_vpn; i++){
+            iterator_dirvir += 8388608;
+            iterator_vpn += 1;
+
+            int pfn = read_conversion_table(iterator_dirvir, file_desc);
+            
+            // en bitmap
+            free_frame(pfn);
+            // valor a guardar
+            unsigned int byte = 0;
+
+            // escribo (14 --> extras, 10*21 --> 21 entradas archivos, 32 donde debo elegir que página)
+            int offset_in_process = 14 + 210 + iterator_vpn ;
+            int choose_process = 256 * file_desc -> buffer_iterator;
+            int total_direction = choose_process + offset_in_process;
+
+            fseek(ptr, total_direction, SEEK_SET);
+            fwrite(&byte, 1, 1, ptr);
+        }
+    }
+    // 5- Chequeo proceso anterior 
+    if (ordered_index - 1 >= 0){
+        // Hay un archivo antes, veo cual es el vpn (dirvir + tamaño)
+        int anterior_dirvir = sorted -> ordered[ordered_index - 1][0] + sorted -> ordered[ordered_index - 1][1];
+        int vpn_anterior = (int) anterior_dirvir / 8388608;
+        
+        if (vpn_anterior != first_vpn){
+            // No comparto page, vacío el frame de mi first vpn :)
+            int pfn = read_conversion_table(file_dirvir, file_desc);
+            // en bitmap
+            free_frame(pfn);
+
+            // valor a guardar
+            unsigned int byte = 0;
+
+            // escribo (14 --> extras, 10*21 --> 21 entradas archivos, 32 donde debo elegir que página)
+            int offset_in_process = 14 + 210 + first_vpn ;
+            int choose_process = 256 * file_desc -> buffer_iterator;
+            int total_direction = choose_process + offset_in_process;
+
+            fseek(ptr, total_direction, SEEK_SET);
+            fwrite(&byte, 1, 1, ptr);
+        }
+        
+    }
+    // 6- Chequeo proceso posterior
+    if (ordered_index + 1 < sorted -> valid_quantity){
+        // Hay un archivo despues, veo cual es el vpn inicial 
+        int posterior_dirvir = sorted -> ordered[ordered_index + 1][0];
+        int vpn_posterior = (int) posterior_dirvir / 8388608;
+        
+        if (vpn_posterior != final_vpn){
+            // No comparto page, vacío el final vpn :)
+
+            int pfn = read_conversion_table(file_dirvir + file_size, file_desc);
+            // en bitmap
+            free_frame(pfn);
+
+            // valor a guardar
+            unsigned int byte = 0;
+
+            // escribo (14 --> extras, 10*21 --> 21 entradas archivos, 32 donde debo elegir que página)
+            int offset_in_process = 14 + 210 + final_vpn ;
+            int choose_process = 256 * file_desc -> buffer_iterator;
+            int total_direction = choose_process + offset_in_process;
+
+            fseek(ptr, total_direction, SEEK_SET);
+            fwrite(&byte, 1, 1, ptr);
+        }   
+    }
+
+    // 7- Cambio info del archivo --> validez, nombre, tamaño, dirvir en 0
+
+    // valor a guardar
+    unsigned int byte = 0;
+
+    int offset_in_process = 14 + 21 * file_desc -> archive_iterator ;
     int choose_process = 256 * file_desc -> buffer_iterator;
     int total_direction = choose_process + offset_in_process;
 
     fseek(ptr, total_direction, SEEK_SET);
     fwrite(&byte, 1, 1, ptr);
-    
+
+    fclose(ptr);
 
 }
 
