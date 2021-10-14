@@ -59,3 +59,5 @@ void cr_close(CrmsFile* file_desc);
 int transform_dirvir_pfn(unsigned char* dir_virtual, unsigned char* buffer, int i);
 
 void delete_framebit(int pfn);
+
+void print_bytes(int start, int n_bytes);
