@@ -24,19 +24,24 @@ int main(int argc, char **argv)
   //cr_mount(ruta);
 
   cr_mount(filename);
-  printf("****************\n");
-  // CrmsFile* data = cr_open(9, "secreeet.txt", 'w');
-  // cr_write_file(data, NULL, 10);
+  CrmsFile* data = cr_open(0, "escribiendo9.MOV", 'w');
+  unsigned char * buffer_test = calloc(100000000, sizeof(unsigned char));
+  FILE *ptr;
+  ptr = fopen("Zoom.pkg","rb");  
+  fread(buffer_test, sizeof(buffer_test), 1, ptr);
+  if (data){
+    cr_write_file(data, buffer_test, 100000000);
+    read_conversion_table(200, data);
+  }
+  free(buffer_test);
+  fclose(ptr);
   //ask_for_frame();
 
-  //cr_ls_processes();
-  //int resp = cr_exists(0, "secret.txt");
-  //printf("respuesta cr_exists %i\n", resp);
-  //cr_ls_files(0);
-  //print_bytes(4096, 256);
-  //cr_start_process(120, "holaa");
-  //cr_finish_process(0);
-  //print_bytes(4096, 256);
+  // cr_ls_processes();
+  // int resp = cr_exists(0, "secret.txt");
+  // printf("respuesta cr_exists %i\n", resp);
+  cr_ls_files(200);
+  // cr_start_process(120, "holaa");
   // cr_finish_process(0);
   //printf("%s\n", filename);
 

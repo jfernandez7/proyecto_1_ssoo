@@ -81,13 +81,15 @@ void cr_ls_files(int process_id){
         int id = buffer[(i * 256) + 1];
         if (id == process_id){
             // archivis
+            char validez[1];
             for (int j = 0; j < 10; j++){
+                validez[0] = (char) buffer[256*i + 14 + 21*j];
                 for (int k = 0; k < 12; k++){
                     // 256 --> proceso / 21 -> archivo / 14 info proceso / k + 1 para saltarse el de validez
                     archivo2[k] = (char)buffer[256*i + 15 + 21*j + k];
                 }
                 if (0 != strlen(archivo2)){
-                    printf("  File name: %s\n", archivo2); 
+                    printf("Nombre del archivo: %s || validez: %d\n", archivo2, validez[0]); 
                 }     
             }       
         }  
@@ -344,7 +346,7 @@ CrmsFile* cr_open(int process_id, char* file_name, char mode){
                             // 256 --> proceso / 21 -> archivo / 14 info proceso / k + 1 para saltarse el de validez
                             archivo[k] = (char)buffer_starts[256*i + 15 + 21*j + k];
                         }
-                        if (file_name == archivo){
+                        if (strcmp(archivo, file_name) == 0){
                             crms_file -> archive_iterator = j;
                             printf("Nombre del archivo encontrado! archive_iterator = %d\n", j); 
                         }     
@@ -367,17 +369,22 @@ CrmsFile* cr_open(int process_id, char* file_name, char mode){
                             // current archive is invalid
                             indice = j;
                             printf("Indice para nuevo archivo encontrado! archive_iterator = %d\n", j); 
+                            crms_file -> archive_iterator = j;
                             break;
                         }  
                     }
                     if (indice != -1){
                         fseek(ptr, 256*i + 14 + 21*indice , SEEK_SET);
                         fwrite(&validez, 1, 1, ptr);
+                        rewind(ptr);
                         fseek(ptr, 256*i + 15 + 21*indice , SEEK_SET);
-                        fwrite(&file_name, 1, 12, ptr);
+                        fwrite(file_name, 1, 12, ptr);
+                        rewind(ptr);
                         fseek(ptr, 256*i + 27 + 21*indice , SEEK_SET);
                         fwrite(&size_buffer, 1, 4, ptr);
+                        fclose(ptr);
                         printf("Creados tambien su nombre, validez y tamaño en la tabla :)\n"); 
+                        return crms_file;
 
 
                     }
@@ -394,10 +401,14 @@ CrmsFile* cr_open(int process_id, char* file_name, char mode){
         fclose(ptr);
         return crms_file;
     }
+    else{
+        printf("Error en cr_open\n");
+        // PENDIENTES
+        // Qué devolver en otro caso?
+        return 0;
+    }
     
-    printf("Error en cr_open\n");
-    // PENDIENTES
-    // Qué devolver en otro caso?
+    
 
 } 
 
@@ -424,6 +435,7 @@ int read_conversion_table (int dirvir, CrmsFile* file_desc){
 
     // escribo (14 --> extras, 10*21 --> 21 entradas archivos, 32 donde debo elegir que página)
     int vpn = (int) dirvir / 8388608;
+    printf("VPN buscado es %d\n", vpn);
     int offset_in_process = 14 + 210 + vpn ;
     int choose_process = 256 * file_desc -> buffer_iterator;
     int total_direction = choose_process + offset_in_process;
@@ -442,7 +454,8 @@ int read_conversion_table (int dirvir, CrmsFile* file_desc){
     if (valid == 1){
         pfn = buffer[0] - 128;
     }
-    
+    printf("pfn calculado es %d\n", pfn);
+
     return pfn;
     
 
@@ -452,7 +465,7 @@ int read_conversion_table (int dirvir, CrmsFile* file_desc){
 
 int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
     // - Confirmar modo write
-    if (file_desc -> mode == 'w'){
+    if (file_desc -> mode == 'w' && file_desc){
 
         // direccion, tamaño, bits
         int starts[10][2];
@@ -597,6 +610,9 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
         // calculo pfn inicial
 
+        printf("DIRVIR inicial: %d\n", dirvir_inicial);
+        printf("DIRVIR final: %d\n", dirvir_final);
+
         unsigned char * buffer_dirvir_inicial[4];
 
         // Calculo de los offset final e inicial
@@ -609,13 +625,18 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
         pfn_inicial = read_conversion_table(dirvir_inicial, file_desc);
 
+        printf("PFN inicial: %d\n", pfn_inicial);
+
         if (pfn_inicial == -1){
 
+            printf("Pedi frame para partir pq im new\n");
             // pido a bitmap y vuelvo a buscar
 
             pfn_inicial = ask_for_frame();
 
             if (pfn_inicial != -1){
+                printf("PFN nuevo inicial: %d\n", pfn_inicial);
+
                 // Bitmap pedido y pfn actualizado
                 // Ahora asociar frame a pfn
                 // byte de la tabla validez|pfn
@@ -646,15 +667,24 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         unsigned int current_dirvir = dirvir_inicial;
 
         int bytes_written = 0;
-
+        unsigned int offset;
         while(bytes_written < n_bytes && current_dirvir < dirvir_final){
 
-            unsigned int offset = (current_dirvir << 9) >> 9;
+            offset = current_dirvir % 8388608;
+            // unsigned int offset = (current_dirvir << 9) >> 9;
+            // printf("Offset actual: %d\n", offset);
+            // printf("division: %d\n", current_dirvir % 8388608);
+
 
             // Llegamos al limite de una página
-            if (current_dirvir % 8388608 == 0) {
+            if (current_dirvir % 8388608 == 0 && current_dirvir != 0) {
+
+                printf("llegue a limite - pido nuevo frame\n");
+
                 current_pfn = ask_for_frame();
+
                 if (current_pfn != -1){
+                    printf("PFN nuevo : %d\n", current_pfn);
                     // Bitmap pedido y pfn actualizado
                     // Ahora asociar frame a pfn
                     // byte de la tabla validez|pfn
@@ -683,7 +713,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
             }
 
             // Escribir en pfn + offset el buffer[bytes_written]
-            
+            // printf("Escribiendo un byte\n");
             fseek(ptr, 5012 + (8388608 * current_pfn) + offset, SEEK_SET);
             fwrite(&buffer[bytes_written], 1, 1, ptr);
             bytes_written += 1;
@@ -698,6 +728,10 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
         // pasar bytes written a endianness correcto
         char final_size_buffer[4];
         to4bi(bytes_written, final_size_buffer);
+        printf("bytes totales escritos: %d\n", bytes_written);
+        printf("pfn inicial: %d\n", pfn_inicial);
+
+        printf("pfn final: %d\n", current_pfn);
 
         int offset_in_process = 14 + file_desc -> archive_iterator * 21 + 13 ;
         int choose_process = 256 * file_desc -> buffer_iterator;
@@ -746,9 +780,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 // ----------------- aca pa arriba es caca --------------------------
     }
     else {
-
-        // abri el archivo en el modo equivocado
-        // RAISE ERROR?
+        printf("El archivo a escribir no se abrió en el modo correcto\n");
     }
     
 
@@ -778,12 +810,12 @@ int ask_for_frame() {
         }
 
         if (pfn != -1) {
-            printf("PFN: %d\n", pfn);
             fseek(ptr, 4096 + i, SEEK_SET);
             fwrite(&current_byte, sizeof(char), 1, ptr);
             break;
         }
     }
+    printf("PFN: %d\n", pfn);
     fclose(ptr);
     return pfn;
 }
