@@ -446,7 +446,7 @@ int read_conversion_table (int dirvir, CrmsFile* file_desc){
     fseek(ptr, total_direction, SEEK_SET);
     fread(buffer, sizeof(buffer), 1, ptr); 
     
-    // leo 1 byte : 1 bit validez| 7 bits pfn
+    // leo 1 byte : 1 bit validez | 7 bits pfn
     int pfn = -1;
     
     
@@ -829,16 +829,35 @@ int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes){
 }
 
 void cr_delete_file(CrmsFile* file_desc){
+    // Delete file info from process table
+    // if frame is free, delete frame in process table & free bitmap
+
+    printf("PFN nuevo : %d\n", current_pfn);
+    // Bitmap pedido y pfn actualizado
+    // Ahora asociar frame a pfn
+    // byte de la tabla validez|pfn
+    // 128 = 0x10000000 = valido
+    unsigned int byte = 128;
+
+    // sumo los bits de pfn
+    byte += current_pfn;
+
+    // escribo (14 --> extras, 10*21 --> 21 entradas archivos, 32 donde debo elegir que página)
+    int offset_in_process = 14 + 210 + current_dirvir / 8388608 ;
+    int choose_process = 256 * file_desc -> buffer_iterator;
+    int total_direction = choose_process + offset_in_process;
+
+    fseek(ptr, total_direction, SEEK_SET);
+    fwrite(&byte, 1, 1, ptr);
+    
 
 }
 
 void cr_close(CrmsFile* file_desc){
-    
+    printf("cr_close freeing CrmsFile\n");
+    free(file_desc);
 }
 
-int virmem_to_vpn(int vir_mem){
-    
-}
 
 Options* sort_valid_process_files(int array[10][2], unsigned char * virmems [10]){
 
