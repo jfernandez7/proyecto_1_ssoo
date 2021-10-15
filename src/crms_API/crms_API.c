@@ -56,8 +56,9 @@ int cr_exists(int process_id, char* file_name){
                 for (int k = 0; k < 12; k++){
                     archivo1[k] = (char)buffer[256*i + 15 + 21*j + k];
                 }
+                int valid = buffer[256*i + 14 + 21*j];
                 int result = strcmp(archivo1, file_name);
-                if (result == 0){
+                if (result == 0 && valid){
                     return 1;
                 }     
             }       
