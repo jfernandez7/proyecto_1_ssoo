@@ -467,10 +467,18 @@ int read_conversion_table (int dirvir, CrmsFile* file_desc){
 
 int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
     // - Confirmar modo write
+    int starts[10][3];
+    for (int i = 0; i < 10; i++)
+    {
+        starts[i][0] = 0;
+        starts[i][1] = 0;
+        starts[i][2] = 0;
+    }
+    
     if (file_desc -> mode == 'w' && file_desc){
 
         // direccion, tamaño, bits
-        int starts[10][3];
+        
         unsigned char * virmems [10];
         int counter = 0;
         unsigned char buffer_starts[4096];
@@ -851,6 +859,7 @@ int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes){
     }
     file_desc -> actual_read += bytes_read;
     fclose(ptr);
+    return bytes_read;
 }
 
 void cr_delete_file(CrmsFile* file_desc){

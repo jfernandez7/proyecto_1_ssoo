@@ -26,8 +26,8 @@ int main(int argc, char **argv)
   cr_mount(filename);
   cr_ls_processes();
   cr_exists(0, "secret.txt");
-  // int resp = cr_exists(0, "secret.txt");
-  // printf("respuesta cr_exists %i\n", resp);
+  // // int resp = cr_exists(0, "secret.txt");
+  // // printf("respuesta cr_exists %i\n", resp);
   cr_ls_files(0);
   cr_start_process(120, "holaa");
   cr_finish_process(0);
@@ -40,8 +40,9 @@ int main(int argc, char **argv)
     cr_write_file(data, buffer_test, 13);
     read_conversion_table(200, data);
   }
-  char* string = calloc(13, sizeof(char));
+  char* string = calloc(14, sizeof(char));
   cr_read(data, string, 13);
+  string[13] = NULL;
   printf("String: %s\n", string);
   free(string);
   fclose(ptr);
