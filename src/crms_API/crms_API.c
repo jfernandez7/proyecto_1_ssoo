@@ -457,7 +457,7 @@ int read_conversion_table (int dirvir, CrmsFile* file_desc){
         pfn = buffer[0] - 128;
     }
     printf("pfn calculado es %d\n", pfn);
-
+    fclose(ptr);
     return pfn;
     
 
