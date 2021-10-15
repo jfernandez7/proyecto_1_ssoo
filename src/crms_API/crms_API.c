@@ -746,7 +746,7 @@ int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
 
         fseek(ptr, total_direction + 4, SEEK_SET);
         fwrite(&buffer_dirvir_inicial, 4, 1, ptr);
-
+        free(sorted);
         fclose(ptr);
         return bytes_written;
     }
@@ -1010,7 +1010,7 @@ void cr_delete_file(CrmsFile* file_desc){
 
             fseek(ptr, total_direction, SEEK_SET);
             fwrite(&byte, 1, 1, ptr);
-
+            free(sorted);
             fclose(ptr);
         }
         else {
